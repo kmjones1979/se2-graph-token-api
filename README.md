@@ -74,31 +74,6 @@ export default function YourComponent() {
 }
 ```
 
-Example token addresses for testing:
-
--   Ethereum (GRT): \`0xc944E90C64B2c07662A292be6244BDf05Cda44a7\`
--   Arbitrum (ARB): \`0x912CE59144191C1204E64559FE8253a0e49E6548\`
--   Base (cbETH): \`0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22\`
--   BSC (BSC-USD): \`0x55d398326f99059fF775485246999027B3197955\`
--   Optimism (OP): \`0x4200000000000000000000000000000000000042\`
-
-### Token Balances Component
-
-Retrieves token balances for any Ethereum address across supported networks.
-
-```typescript
-// Example usage
-import { GetBalances } from "./_components/GetBalances";
-
-export default function YourComponent() {
-    return (
-        <div>
-            <GetBalances />
-        </div>
-    );
-}
-```
-
 ### Token Transfers Component
 
 Tracks token transfer events with detailed information.
@@ -128,6 +103,31 @@ export default function YourComponent() {
     return (
         <div>
             <GetMetadata />
+        </div>
+    );
+}
+```
+
+### Token Balances Component
+
+Retrieves token balances for any Ethereum address across supported networks.
+
+Example token addresses for testing:
+
+-   Ethereum (GRT): \`0xc944E90C64B2c07662A292be6244BDf05Cda44a7\`
+-   Arbitrum (ARB): \`0x912CE59144191C1204E64559FE8253a0e49E6548\`
+-   Base (cbETH): \`0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22\`
+-   BSC (BSC-USD): \`0x55d398326f99059fF775485246999027B3197955\`
+-   Optimism (OP): \`0x4200000000000000000000000000000000000042\`
+
+```typescript
+// Example usage
+import { GetBalances } from "./_components/GetBalances";
+
+export default function YourComponent() {
+    return (
+        <div>
+            <GetBalances />
         </div>
     );
 }
