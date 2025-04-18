@@ -1,6 +1,6 @@
 # Token API Explorer 🚀 built with Scaffold-ETH 2
 
-A modern, responsive web application built with Next.js that interacts with [Pinax Network's Token API](https://beta.docs.pinax.network/evm/holders). This explorer allows you to fetch and display token information across multiple EVM networks.
+A modern, responsive web application built with Next.js that interacts with [The Graph Token API](https://thegraph.com/docs/en/token-api/evm/get-balances-evm-by-address/). This explorer allows you to fetch and display token information across multiple EVM networks.
 
 ## 🌟 Features
 
@@ -16,7 +16,7 @@ A modern, responsive web application built with Next.js that interacts with [Pin
 
 -   Node.js (>= v20.18.3)
 -   Yarn (v1 or v2+)
--   A Pinax Network API Key
+-   A Graph API Token from [The Graph Market](https://thegraph.market/)
 
 ### Installation
 
@@ -135,14 +135,16 @@ export default function YourComponent() {
 
 ## 🔑 API Authentication
 
-The application requires a Pinax Network API key for authentication. Follow these steps to set up your API key:
+The application requires a Graph API Token for authentication. Follow these steps to set up your API key:
 
-1. Sign up for an account at [Pinax Network](https://pinax.network)
-2. Generate an API key from your dashboard
-3. Create a `.env.local` file in your project root:
+1. Visit [The Graph Market](https://thegraph.market/)
+2. Navigate to the "Token API" tab
+3. Click "Get API Key"
+4. Follow the authentication process
+5. Copy your API Token
 
 ```env
-NEXT_PUBLIC_GRAPH_TOKEN=your_pinax_api_key_here
+NEXT_PUBLIC_GRAPH_TOKEN=your_graph_api_token_here
 ```
 
 ⚠️ **Important**: Never commit your `.env.local` file to version control. Make sure it's included in your `.gitignore`.
