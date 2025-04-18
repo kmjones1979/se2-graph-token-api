@@ -77,7 +77,7 @@ const estimateDateFromBlock = (blockNum: number, networkId: string): Date => {
 };
 
 export const GetTransfers = () => {
-  const [address, setAddress] = useState<string>("");
+  const [contractAddress, setContractAddress] = useState<string>("");
   const [selectedNetwork, setSelectedNetwork] = useState<string>("mainnet");
   const [transfers, setTransfers] = useState<TokenTransfer[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -92,8 +92,8 @@ export const GetTransfers = () => {
   };
 
   const fetchTransfers = async () => {
-    if (!address) {
-      setError("Please enter an address");
+    if (!contractAddress) {
+      setError("Please enter a contract address");
       return;
     }
 
@@ -103,7 +103,7 @@ export const GetTransfers = () => {
     try {
       // Construct URL with correct endpoint structure
       const baseUrl = "https://token-api.thegraph.com";
-      const url = new URL(`${baseUrl}/transfers/evm/${address}`, baseUrl);
+      const url = new URL(`${baseUrl}/transfers/evm/${contractAddress}`, baseUrl);
 
       // Add query parameters
       url.searchParams.append("network_id", selectedNetwork);
@@ -151,154 +151,148 @@ export const GetTransfers = () => {
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="card bg-base-100 shadow-xl">
-        <div className="card-body">
-          <div className="flex flex-col md:flex-row gap-6">
-            <div className="flex-grow">
-              <label className="label">
-                <span className="label-text text-xl font-bold">Enter Ethereum Address</span>
-              </label>
-              <AddressInput value={address} onChange={setAddress} placeholder="Enter any address" />
-            </div>
-            <div className="w-full md:w-48">
-              <label className="label">
-                <span className="label-text text-base">Select Network</span>
-              </label>
-              <select
-                className="select select-bordered w-full"
-                value={selectedNetwork}
-                onChange={e => handleNetworkChange(e.target.value)}
-              >
-                {EVM_NETWORKS.map(network => (
-                  <option key={network.id} value={network.id}>
-                    {network.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="w-full md:w-48">
-              <label className="label">
-                <span className="label-text text-base">Time Range (Days)</span>
-              </label>
-              <select
-                className="select select-bordered w-full"
-                value={age}
-                onChange={e => setAge(Number(e.target.value))}
-              >
-                <option value={7}>Last 7 days</option>
-                <option value={30}>Last 30 days</option>
-                <option value={90}>Last 90 days</option>
-                <option value={180}>Last 180 days</option>
-              </select>
+    <details className="collapse bg-base-200" open>
+      <summary className="collapse-title text-xl font-bold">🔄 Token Transfers - View token transfer history</summary>
+      <div className="collapse-content">
+        <div className="flex flex-col gap-6">
+          <div className="card bg-base-100 shadow-xl">
+            <div className="card-body">
+              <div className="flex flex-col gap-4">
+                <div className="w-full">
+                  <label className="label">
+                    <span className="label-text text-xl font-bold">Enter Token Contract Address</span>
+                  </label>
+                  <AddressInput
+                    value={contractAddress}
+                    onChange={setContractAddress}
+                    placeholder="Enter token contract address"
+                  />
+                </div>
+                <div className="w-full">
+                  <label className="label">
+                    <span className="label-text text-base">Select Network</span>
+                  </label>
+                  <select
+                    className="select select-bordered w-full"
+                    value={selectedNetwork}
+                    onChange={e => handleNetworkChange(e.target.value)}
+                  >
+                    {EVM_NETWORKS.map(network => (
+                      <option key={network.id} value={network.id}>
+                        {network.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="card-actions justify-end mt-4">
+                <button
+                  className={`btn btn-primary ${isLoading ? "loading" : ""}`}
+                  onClick={fetchTransfers}
+                  disabled={isLoading || !contractAddress}
+                >
+                  {isLoading ? "Fetching..." : "Fetch Transfers"}
+                </button>
+              </div>
             </div>
           </div>
-          <div className="card-actions justify-end mt-4">
-            <button
-              className={`btn btn-primary ${isLoading ? "loading" : ""}`}
-              onClick={fetchTransfers}
-              disabled={isLoading || !address}
-            >
-              {isLoading ? "Fetching..." : "Fetch Transfers"}
-            </button>
-          </div>
-        </div>
-      </div>
 
-      {isLoading && (
-        <div className="alert">
-          <span className="loading loading-spinner loading-md"></span>
-          <span>Loading token transfers on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}...</span>
-        </div>
-      )}
+          {isLoading && (
+            <div className="alert">
+              <span className="loading loading-spinner loading-md"></span>
+              <span>Loading token transfers on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}...</span>
+            </div>
+          )}
 
-      {error && (
-        <div className="alert alert-error">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="stroke-current shrink-0 h-6 w-6"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          <span>Error: {error}</span>
-        </div>
-      )}
+          {error && (
+            <div className="alert alert-error">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="stroke-current shrink-0 h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <span>Error: {error}</span>
+            </div>
+          )}
 
-      {!isLoading && !error && address && (
-        <div className="card bg-base-100 shadow-xl">
-          <div className="card-body">
-            <h2 className="card-title mb-4">
-              Token Transfers on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}
-            </h2>
-            <div className="flex flex-col gap-2">
-              {transfers && transfers.length > 0 ? (
-                transfers.map((transfer, index) => (
-                  <div key={`${transfer.transaction_id}-${index}`} className="card bg-base-200 shadow-sm">
-                    <div className="card-body p-4">
-                      <div className="flex flex-col">
-                        <div className="text-lg font-semibold">{transfer.symbol}</div>
-                        <div className="flex justify-between items-center">
-                          <div className="text-sm opacity-70">From: {transfer.from}</div>
-                          <div className="text-sm opacity-70">To: {transfer.to}</div>
-                        </div>
-                        <div className="text-xl">
-                          {(Number(transfer.amount) / Math.pow(10, transfer.decimals)).toFixed(6)} {transfer.symbol}
-                        </div>
-                        {transfer.value_usd && (
-                          <div className="text-sm text-success">${transfer.value_usd.toFixed(2)}</div>
-                        )}
-                        <div className="text-xs opacity-70">
-                          Date:{" "}
-                          {transfer.timestamp
-                            ? new Date(transfer.timestamp * 1000).toLocaleString()
-                            : estimateDateFromBlock(transfer.block_num, transfer.network_id).toLocaleString()}
-                        </div>
-                        <div className="text-xs opacity-70">
-                          <a
-                            href={`https://etherscan.io/tx/${transfer.transaction_id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="link link-primary"
-                          >
-                            View Transaction
-                          </a>
+          {!isLoading && !error && contractAddress && (
+            <div className="card bg-base-100 shadow-xl">
+              <div className="card-body">
+                <h2 className="card-title mb-4">
+                  Token Transfers on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}
+                </h2>
+                <div className="flex flex-col gap-2">
+                  {transfers && transfers.length > 0 ? (
+                    transfers.map((transfer, index) => (
+                      <div key={`${transfer.transaction_id}-${index}`} className="card bg-base-200 shadow-sm">
+                        <div className="card-body p-4">
+                          <div className="flex flex-col">
+                            <div className="text-lg font-semibold">{transfer.symbol}</div>
+                            <div className="flex justify-between items-center">
+                              <div className="text-sm opacity-70">From: {transfer.from}</div>
+                              <div className="text-sm opacity-70">To: {transfer.to}</div>
+                            </div>
+                            <div className="text-xl">
+                              {(Number(transfer.amount) / Math.pow(10, transfer.decimals)).toFixed(6)} {transfer.symbol}
+                            </div>
+                            {transfer.value_usd && (
+                              <div className="text-sm text-success">${transfer.value_usd.toFixed(2)}</div>
+                            )}
+                            <div className="text-xs opacity-70">
+                              Date:{" "}
+                              {transfer.timestamp
+                                ? new Date(transfer.timestamp * 1000).toLocaleString()
+                                : estimateDateFromBlock(transfer.block_num, transfer.network_id).toLocaleString()}
+                            </div>
+                            <div className="text-xs opacity-70">
+                              <a
+                                href={`https://etherscan.io/tx/${transfer.transaction_id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="link link-primary"
+                              >
+                                View Transaction
+                              </a>
+                            </div>
+                          </div>
                         </div>
                       </div>
+                    ))
+                  ) : (
+                    <div className="alert alert-info">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        className="stroke-current shrink-0 w-6 h-6"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      <span>
+                        No token transfers found for this address on{" "}
+                        {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name} in the last {age} days
+                      </span>
                     </div>
-                  </div>
-                ))
-              ) : (
-                <div className="alert alert-info">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    className="stroke-current shrink-0 w-6 h-6"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  <span>
-                    No token transfers found for this address on{" "}
-                    {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name} in the last {age} days
-                  </span>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
-      )}
-    </div>
+      </div>
+    </details>
   );
 };

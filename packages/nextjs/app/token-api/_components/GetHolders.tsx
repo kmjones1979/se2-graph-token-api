@@ -179,177 +179,187 @@ export const GetHolders = () => {
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="card bg-base-100 shadow-xl">
-        <div className="card-body">
-          <div className="flex flex-col md:flex-row gap-6">
-            <div className="flex-grow">
-              <label className="label">
-                <span className="label-text text-xl font-bold">Enter Token Contract Address</span>
-              </label>
-              <AddressInput
-                value={contractAddress}
-                onChange={setContractAddress}
-                placeholder="Enter token contract address"
-              />
-              <div className="mt-2 text-sm opacity-70">
-                Example for {selectedNetwork}: {exampleTokens[selectedNetwork as keyof typeof exampleTokens]}
+    <details className="collapse bg-base-200" open>
+      <summary className="collapse-title text-xl font-bold">
+        👥 Token Holders - View all holders of an ERC20 token
+      </summary>
+      <div className="collapse-content">
+        <div className="flex flex-col gap-6">
+          <div className="card bg-base-100 shadow-xl">
+            <div className="card-body">
+              <div className="flex flex-col gap-4">
+                <div className="w-full">
+                  <label className="label">
+                    <span className="label-text text-xl font-bold">Enter Token Contract Address</span>
+                  </label>
+                  <AddressInput
+                    value={contractAddress}
+                    onChange={setContractAddress}
+                    placeholder="Enter token contract address"
+                  />
+                  <div className="mt-2 text-sm opacity-70">
+                    Example for {selectedNetwork}: {exampleTokens[selectedNetwork as keyof typeof exampleTokens]}
+                  </div>
+                </div>
+                <div className="w-full">
+                  <label className="label">
+                    <span className="label-text text-base">Select Network</span>
+                  </label>
+                  <select
+                    className="select select-bordered w-full"
+                    value={selectedNetwork}
+                    onChange={e => handleNetworkChange(e.target.value)}
+                  >
+                    {EVM_NETWORKS.map(network => (
+                      <option key={network.id} value={network.id}>
+                        {network.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="w-full">
+                  <label className="label">
+                    <span className="label-text text-base">Sort Order</span>
+                  </label>
+                  <select
+                    className="select select-bordered w-full"
+                    value={orderBy}
+                    onChange={e => setOrderBy(e.target.value)}
+                  >
+                    <option value="desc">Highest Balance First</option>
+                    <option value="asc">Lowest Balance First</option>
+                  </select>
+                </div>
+                <div className="w-full">
+                  <label className="label">
+                    <span className="label-text text-base">Results per Page</span>
+                  </label>
+                  <select
+                    className="select select-bordered w-full"
+                    value={limit}
+                    onChange={e => setLimit(Number(e.target.value))}
+                  >
+                    <option value={10}>10 Holders</option>
+                    <option value={50}>50 Holders</option>
+                    <option value={100}>100 Holders</option>
+                    <option value={500}>500 Holders</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex justify-between items-center mt-4">
+                <div className="flex gap-2">
+                  <button
+                    className="btn btn-sm"
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page === 1 || isLoading}
+                  >
+                    Previous
+                  </button>
+                  <span className="py-1">Page {page}</span>
+                  <button
+                    className="btn btn-sm"
+                    onClick={() => setPage(p => p + 1)}
+                    disabled={isLoading || holders.length < limit}
+                  >
+                    Next
+                  </button>
+                </div>
+                <button
+                  className={`btn btn-primary ${isLoading ? "loading" : ""}`}
+                  onClick={fetchHolders}
+                  disabled={isLoading || !contractAddress}
+                >
+                  {isLoading ? "Fetching..." : "Fetch Holders"}
+                </button>
               </div>
             </div>
-            <div className="w-full md:w-48">
-              <label className="label">
-                <span className="label-text text-base">Select Network</span>
-              </label>
-              <select
-                className="select select-bordered w-full"
-                value={selectedNetwork}
-                onChange={e => handleNetworkChange(e.target.value)}
-              >
-                {EVM_NETWORKS.map(network => (
-                  <option key={network.id} value={network.id}>
-                    {network.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="w-full md:w-48">
-              <label className="label">
-                <span className="label-text text-base">Sort Order</span>
-              </label>
-              <select
-                className="select select-bordered w-full"
-                value={orderBy}
-                onChange={e => setOrderBy(e.target.value)}
-              >
-                <option value="desc">Highest Balance First</option>
-                <option value="asc">Lowest Balance First</option>
-              </select>
-            </div>
-            <div className="w-full md:w-48">
-              <label className="label">
-                <span className="label-text text-base">Results per Page</span>
-              </label>
-              <select
-                className="select select-bordered w-full"
-                value={limit}
-                onChange={e => setLimit(Number(e.target.value))}
-              >
-                <option value={10}>10 Holders</option>
-                <option value={50}>50 Holders</option>
-                <option value={100}>100 Holders</option>
-                <option value={500}>500 Holders</option>
-              </select>
-            </div>
           </div>
-          <div className="flex justify-between items-center mt-4">
-            <div className="flex gap-2">
-              <button
-                className="btn btn-sm"
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1 || isLoading}
-              >
-                Previous
-              </button>
-              <span className="py-1">Page {page}</span>
-              <button
-                className="btn btn-sm"
-                onClick={() => setPage(p => p + 1)}
-                disabled={isLoading || holders.length < limit}
-              >
-                Next
-              </button>
+
+          {isLoading && (
+            <div className="alert">
+              <span className="loading loading-spinner loading-md"></span>
+              <span>Loading token holders on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}...</span>
             </div>
-            <button
-              className={`btn btn-primary ${isLoading ? "loading" : ""}`}
-              onClick={fetchHolders}
-              disabled={isLoading || !contractAddress}
-            >
-              {isLoading ? "Fetching..." : "Fetch Holders"}
-            </button>
-          </div>
-        </div>
-      </div>
+          )}
 
-      {isLoading && (
-        <div className="alert">
-          <span className="loading loading-spinner loading-md"></span>
-          <span>Loading token holders on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}...</span>
-        </div>
-      )}
+          {error && (
+            <div className="alert alert-error">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="stroke-current shrink-0 h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <span>Error: {error}</span>
+            </div>
+          )}
 
-      {error && (
-        <div className="alert alert-error">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="stroke-current shrink-0 h-6 w-6"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          <span>Error: {error}</span>
-        </div>
-      )}
-
-      {!isLoading && !error && contractAddress && (
-        <div className="card bg-base-100 shadow-xl">
-          <div className="card-body">
-            <h2 className="card-title mb-4">
-              Token Holders on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}
-            </h2>
-            <div className="flex flex-col gap-2">
-              {holders && holders.length > 0 ? (
-                holders.map((holder, index) => (
-                  <div key={`${holder.address}-${index}`} className="card bg-base-200 shadow-sm">
-                    <div className="card-body p-4">
-                      <div className="flex flex-col">
-                        <div className="flex justify-between items-center">
-                          <div className="text-lg font-semibold">Holder #{index + 1}</div>
-                          <div className="text-sm opacity-70">{holder.address}</div>
-                        </div>
-                        <div className="text-xl">
-                          {(Number(holder.amount) / Math.pow(10, holder.decimals)).toFixed(6)} {holder.symbol}
-                        </div>
-                        {holder.value_usd && <div className="text-sm text-success">${holder.value_usd.toFixed(2)}</div>}
-                        <div className="text-xs opacity-70">
-                          Last updated:{" "}
-                          {holder.timestamp
-                            ? new Date(holder.timestamp * 1000).toLocaleString()
-                            : estimateDateFromBlock(holder.block_num, holder.network_id).toLocaleString()}
+          {!isLoading && !error && contractAddress && (
+            <div className="card bg-base-100 shadow-xl">
+              <div className="card-body">
+                <h2 className="card-title mb-4">
+                  Token Holders on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}
+                </h2>
+                <div className="flex flex-col gap-2">
+                  {holders && holders.length > 0 ? (
+                    holders.map((holder, index) => (
+                      <div key={`${holder.address}-${index}`} className="card bg-base-200 shadow-sm">
+                        <div className="card-body p-4">
+                          <div className="flex flex-col">
+                            <div className="flex justify-between items-center">
+                              <div className="text-lg font-semibold">Holder #{index + 1}</div>
+                              <div className="text-sm opacity-70">{holder.address}</div>
+                            </div>
+                            <div className="text-xl">
+                              {(Number(holder.amount) / Math.pow(10, holder.decimals)).toFixed(6)} {holder.symbol}
+                            </div>
+                            {holder.value_usd && (
+                              <div className="text-sm text-success">${holder.value_usd.toFixed(2)}</div>
+                            )}
+                            <div className="text-xs opacity-70">
+                              Last updated:{" "}
+                              {holder.timestamp
+                                ? new Date(holder.timestamp * 1000).toLocaleString()
+                                : estimateDateFromBlock(holder.block_num, holder.network_id).toLocaleString()}
+                            </div>
+                          </div>
                         </div>
                       </div>
+                    ))
+                  ) : (
+                    <div className="alert alert-info">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        className="stroke-current shrink-0 w-6 h-6"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      <span>
+                        No token holders found for this contract on{" "}
+                        {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}
+                      </span>
                     </div>
-                  </div>
-                ))
-              ) : (
-                <div className="alert alert-info">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    className="stroke-current shrink-0 w-6 h-6"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  <span>
-                    No token holders found for this contract on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}
-                  </span>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
-      )}
-    </div>
+      </div>
+    </details>
   );
 };

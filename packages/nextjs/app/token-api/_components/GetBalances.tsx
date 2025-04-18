@@ -124,119 +124,129 @@ export const GetBalances = () => {
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="card bg-base-100 shadow-xl">
-        <div className="card-body">
-          <div className="flex flex-col md:flex-row gap-6">
-            <div className="flex-grow">
-              <label className="label">
-                <span className="label-text text-xl font-bold">Enter Ethereum Address</span>
-              </label>
-              <AddressInput value={address} onChange={setAddress} placeholder="Enter any address" />
+    <details className="collapse bg-base-200" open>
+      <summary className="collapse-title text-xl font-bold">
+        💰 Token Balances - Check token balances for any address
+      </summary>
+      <div className="collapse-content">
+        <div className="flex flex-col gap-6">
+          <div className="card bg-base-100 shadow-xl">
+            <div className="card-body">
+              <div className="flex flex-col gap-4">
+                <div className="w-full">
+                  <label className="label">
+                    <span className="label-text text-xl font-bold">Enter Ethereum Address</span>
+                  </label>
+                  <AddressInput value={address} onChange={setAddress} placeholder="Enter any address" />
+                </div>
+                <div className="w-full">
+                  <label className="label">
+                    <span className="label-text text-base">Select Network</span>
+                  </label>
+                  <select
+                    className="select select-bordered w-full"
+                    value={selectedNetwork}
+                    onChange={e => handleNetworkChange(e.target.value)}
+                  >
+                    {EVM_NETWORKS.map(network => (
+                      <option key={network.id} value={network.id}>
+                        {network.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="card-actions justify-end mt-4">
+                <button
+                  className={`btn btn-primary ${isLoading ? "loading" : ""}`}
+                  onClick={fetchBalances}
+                  disabled={isLoading || !address}
+                >
+                  {isLoading ? "Fetching..." : "Fetch Balances"}
+                </button>
+              </div>
             </div>
-            <div className="w-full md:w-48">
-              <label className="label">
-                <span className="label-text text-base">Select Network</span>
-              </label>
-              <select
-                className="select select-bordered w-full"
-                value={selectedNetwork}
-                onChange={e => handleNetworkChange(e.target.value)}
+          </div>
+
+          {isLoading && (
+            <div className="alert">
+              <span className="loading loading-spinner loading-md"></span>
+              <span>Loading token balances on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}...</span>
+            </div>
+          )}
+
+          {error && (
+            <div className="alert alert-error">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="stroke-current shrink-0 h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
               >
-                {EVM_NETWORKS.map(network => (
-                  <option key={network.id} value={network.id}>
-                    {network.name}
-                  </option>
-                ))}
-              </select>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <span>Error: {error}</span>
             </div>
-          </div>
-          <div className="card-actions justify-end mt-4">
-            <button
-              className={`btn btn-primary ${isLoading ? "loading" : ""}`}
-              onClick={fetchBalances}
-              disabled={isLoading || !address}
-            >
-              {isLoading ? "Fetching..." : "Fetch Balances"}
-            </button>
-          </div>
-        </div>
-      </div>
+          )}
 
-      {isLoading && (
-        <div className="alert">
-          <span className="loading loading-spinner loading-md"></span>
-          <span>Loading token balances on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}...</span>
-        </div>
-      )}
-
-      {error && (
-        <div className="alert alert-error">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="stroke-current shrink-0 h-6 w-6"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          <span>Error: {error}</span>
-        </div>
-      )}
-
-      {!isLoading && !error && address && (
-        <div className="card bg-base-100 shadow-xl">
-          <div className="card-body">
-            <h2 className="card-title mb-4">
-              Token Balances on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}
-            </h2>
-            <div className="flex flex-col gap-2">
-              {balances && balances.length > 0 ? (
-                balances.map((token, index) => (
-                  <div key={`${token.contract}-${index}`} className="card bg-base-200 shadow-sm">
-                    <div className="card-body p-4">
-                      <div className="flex flex-col">
-                        <div className="text-lg font-semibold">{token.symbol}</div>
-                        <div className="text-xl">
-                          {(Number(token.amount) / Math.pow(10, token.decimals)).toFixed(6)} {token.symbol}
-                        </div>
-                        {token.value_usd && <div className="text-sm text-success">${token.value_usd.toFixed(2)}</div>}
-                        <div className="text-xs opacity-70">
-                          Last updated: {new Date(token.datetime).toLocaleDateString()}
+          {!isLoading && !error && address && (
+            <div className="card bg-base-100 shadow-xl">
+              <div className="card-body">
+                <h2 className="card-title mb-4">
+                  Token Balances on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}
+                </h2>
+                <div className="flex flex-col gap-2">
+                  {balances && balances.length > 0 ? (
+                    balances.map((token, index) => (
+                      <div key={`${token.contract}-${index}`} className="card bg-base-200 shadow-sm">
+                        <div className="card-body p-4">
+                          <div className="flex flex-col">
+                            <div className="text-lg font-semibold">{token.symbol}</div>
+                            <div className="text-xl">
+                              {(Number(token.amount) / Math.pow(10, token.decimals)).toFixed(6)} {token.symbol}
+                            </div>
+                            {token.value_usd && (
+                              <div className="text-sm text-success">${token.value_usd.toFixed(2)}</div>
+                            )}
+                            <div className="text-xs opacity-70">
+                              Last updated: {new Date(token.datetime).toLocaleDateString()}
+                            </div>
+                          </div>
                         </div>
                       </div>
+                    ))
+                  ) : (
+                    <div className="alert alert-info">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        className="stroke-current shrink-0 w-6 h-6"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      <span>
+                        No token balances found for this address on{" "}
+                        {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}
+                      </span>
                     </div>
-                  </div>
-                ))
-              ) : (
-                <div className="alert alert-info">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    className="stroke-current shrink-0 w-6 h-6"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  <span>
-                    No token balances found for this address on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}
-                  </span>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
-      )}
-    </div>
+      </div>
+    </details>
   );
 };

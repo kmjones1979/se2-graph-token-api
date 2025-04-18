@@ -160,145 +160,152 @@ export const GetMetadata = () => {
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="card bg-base-100 shadow-xl">
-        <div className="card-body">
-          <div className="flex flex-col md:flex-row gap-6">
-            <div className="flex-grow">
-              <label className="label">
-                <span className="label-text text-xl font-bold">Enter Token Contract Address</span>
-              </label>
-              <AddressInput
-                value={contractAddress}
-                onChange={setContractAddress}
-                placeholder="Enter token contract address"
-              />
+    <details className="collapse bg-base-200" open>
+      <summary className="collapse-title text-xl font-bold">
+        🔍 Token Metadata - Get detailed information about any ERC20 token
+      </summary>
+      <div className="collapse-content">
+        <div className="flex flex-col gap-6">
+          <div className="card bg-base-100 shadow-xl">
+            <div className="card-body">
+              <div className="flex flex-col gap-4">
+                <div className="w-full">
+                  <label className="label">
+                    <span className="label-text text-xl font-bold">Enter Token Contract Address</span>
+                  </label>
+                  <AddressInput
+                    value={contractAddress}
+                    onChange={setContractAddress}
+                    placeholder="Enter token contract address"
+                  />
+                </div>
+                <div className="w-full">
+                  <label className="label">
+                    <span className="label-text text-base">Select Network</span>
+                  </label>
+                  <select
+                    className="select select-bordered w-full"
+                    value={selectedNetwork}
+                    onChange={e => handleNetworkChange(e.target.value)}
+                  >
+                    {EVM_NETWORKS.map(network => (
+                      <option key={network.id} value={network.id}>
+                        {network.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="card-actions justify-end mt-4">
+                <button
+                  className={`btn btn-primary ${isLoading ? "loading" : ""}`}
+                  onClick={fetchMetadata}
+                  disabled={isLoading || !contractAddress}
+                >
+                  {isLoading ? "Fetching..." : "Fetch Metadata"}
+                </button>
+              </div>
             </div>
-            <div className="w-full md:w-48">
-              <label className="label">
-                <span className="label-text text-base">Select Network</span>
-              </label>
-              <select
-                className="select select-bordered w-full"
-                value={selectedNetwork}
-                onChange={e => handleNetworkChange(e.target.value)}
+          </div>
+
+          {isLoading && (
+            <div className="alert">
+              <span className="loading loading-spinner loading-md"></span>
+              <span>Loading token metadata on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}...</span>
+            </div>
+          )}
+
+          {error && (
+            <div className="alert alert-error">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="stroke-current shrink-0 h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
               >
-                {EVM_NETWORKS.map(network => (
-                  <option key={network.id} value={network.id}>
-                    {network.name}
-                  </option>
-                ))}
-              </select>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <span>Error: {error}</span>
             </div>
-          </div>
-          <div className="card-actions justify-end mt-4">
-            <button
-              className={`btn btn-primary ${isLoading ? "loading" : ""}`}
-              onClick={fetchMetadata}
-              disabled={isLoading || !contractAddress}
-            >
-              {isLoading ? "Fetching..." : "Fetch Metadata"}
-            </button>
-          </div>
-        </div>
-      </div>
+          )}
 
-      {isLoading && (
-        <div className="alert">
-          <span className="loading loading-spinner loading-md"></span>
-          <span>Loading token metadata on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}...</span>
-        </div>
-      )}
-
-      {error && (
-        <div className="alert alert-error">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="stroke-current shrink-0 h-6 w-6"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          <span>Error: {error}</span>
-        </div>
-      )}
-
-      {!isLoading && !error && metadata && (
-        <div className="card bg-base-100 shadow-xl">
-          <div className="card-body">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6">
-              {metadata.icon?.web3icon && (
-                <div className="w-12 h-12 rounded-full bg-base-200 flex items-center justify-center flex-shrink-0">
-                  <span className="text-2xl">{metadata.icon.web3icon}</span>
-                </div>
-              )}
-              <div className="flex-grow min-w-0">
-                <h2 className="card-title text-2xl">{metadata.name}</h2>
-                <p className="text-lg opacity-70">{metadata.symbol}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4">
-              <div className="stat bg-base-200 rounded-box p-4">
-                <div className="stat-title">Contract Address</div>
-                <div className="stat-value text-base break-all font-mono">{metadata.address}</div>
-              </div>
-
-              <div className="stat bg-base-200 rounded-box p-4">
-                <div className="stat-title">Network</div>
-                <div className="stat-value">{EVM_NETWORKS.find(n => n.id === metadata.network_id)?.name}</div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="stat bg-base-200 rounded-box p-4">
-                  <div className="stat-title">Circulating Supply</div>
-                  <div className="stat-value text-primary text-2xl sm:text-3xl break-all">
-                    {formatSupply(metadata.circulating_supply, metadata.decimals)}
+          {!isLoading && !error && metadata && (
+            <div className="card bg-base-100 shadow-xl">
+              <div className="card-body">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6">
+                  {metadata.icon?.web3icon && (
+                    <div className="w-12 h-12 rounded-full bg-base-200 flex items-center justify-center flex-shrink-0">
+                      <span className="text-2xl">{metadata.icon.web3icon}</span>
+                    </div>
+                  )}
+                  <div className="flex-grow min-w-0">
+                    <h2 className="card-title text-2xl">{metadata.name}</h2>
+                    <p className="text-lg opacity-70">{metadata.symbol}</p>
                   </div>
-                  <div className="stat-desc">Decimals: {metadata.decimals}</div>
                 </div>
 
-                <div className="stat bg-base-200 rounded-box p-4">
-                  <div className="stat-title">Total Holders</div>
-                  <div className="stat-value text-secondary">{formatNumber(metadata.holders)}</div>
-                </div>
-
-                {metadata.price_usd && (
+                <div className="grid grid-cols-1 gap-4">
                   <div className="stat bg-base-200 rounded-box p-4">
-                    <div className="stat-title">Price (USD)</div>
-                    <div className="stat-value">${metadata.price_usd.toFixed(4)}</div>
+                    <div className="stat-title">Contract Address</div>
+                    <div className="stat-value text-base break-all font-mono">{metadata.address}</div>
                   </div>
-                )}
 
-                {metadata.market_cap && (
                   <div className="stat bg-base-200 rounded-box p-4">
-                    <div className="stat-title">Market Cap (USD)</div>
-                    <div className="stat-value text-2xl sm:text-3xl break-all">
-                      ${formatNumber(metadata.market_cap.toFixed(2))}
+                    <div className="stat-title">Network</div>
+                    <div className="stat-value">{EVM_NETWORKS.find(n => n.id === metadata.network_id)?.name}</div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="stat bg-base-200 rounded-box p-4">
+                      <div className="stat-title">Circulating Supply</div>
+                      <div className="stat-value text-primary text-2xl sm:text-3xl break-all">
+                        {formatSupply(metadata.circulating_supply, metadata.decimals)}
+                      </div>
+                      <div className="stat-desc">Decimals: {metadata.decimals}</div>
+                    </div>
+
+                    <div className="stat bg-base-200 rounded-box p-4">
+                      <div className="stat-title">Total Holders</div>
+                      <div className="stat-value text-secondary">{formatNumber(metadata.holders)}</div>
+                    </div>
+
+                    {metadata.price_usd && (
+                      <div className="stat bg-base-200 rounded-box p-4">
+                        <div className="stat-title">Price (USD)</div>
+                        <div className="stat-value">${metadata.price_usd.toFixed(4)}</div>
+                      </div>
+                    )}
+
+                    {metadata.market_cap && (
+                      <div className="stat bg-base-200 rounded-box p-4">
+                        <div className="stat-title">Market Cap (USD)</div>
+                        <div className="stat-value text-2xl sm:text-3xl break-all">
+                          ${formatNumber(metadata.market_cap.toFixed(2))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="stat bg-base-200 rounded-box p-4">
+                      <div className="stat-title">Last Updated</div>
+                      <div className="stat-value text-base">
+                        {metadata.timestamp
+                          ? new Date(metadata.timestamp.replace(" ", "T")).toLocaleString()
+                          : estimateDateFromBlock(metadata.block_num, metadata.network_id).toLocaleString()}
+                      </div>
+                      <div className="stat-desc">Block: {metadata.block_num}</div>
                     </div>
                   </div>
-                )}
-
-                <div className="stat bg-base-200 rounded-box p-4">
-                  <div className="stat-title">Last Updated</div>
-                  <div className="stat-value text-base">
-                    {metadata.timestamp
-                      ? new Date(metadata.timestamp.replace(" ", "T")).toLocaleString()
-                      : estimateDateFromBlock(metadata.block_num, metadata.network_id).toLocaleString()}
-                  </div>
-                  <div className="stat-desc">Block: {metadata.block_num}</div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
-      )}
-    </div>
+      </div>
+    </details>
   );
 };
