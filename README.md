@@ -1,3 +1,238 @@
+# Token API Explorer 🚀 built with Scaffold-ETH 2
+
+A modern, responsive web application built with Next.js that interacts with [Pinax Network's Token API](https://beta.docs.pinax.network/evm/holders). This explorer allows you to fetch and display token information across multiple EVM networks.
+
+## 🌟 Features
+
+-   📊 Token Holders: View detailed holder information with pagination
+-   💰 Token Balances: Check balances for any address
+-   🔄 Token Transfers: Track token movement with detailed transaction info
+-   ℹ️ Token Metadata: Get comprehensive token information
+-   🌐 Multi-Network Support: Works across Ethereum, Base, Arbitrum, BSC, and Optimism
+
+## 🛠️ Setup
+
+### Prerequisites
+
+-   Node.js (>= v20.18.3)
+-   Yarn (v1 or v2+)
+-   A Pinax Network API Key
+
+### Installation
+
+1. Clone the repository:
+
+```bash
+git clone <your-repo-url>
+cd se2-graph-token-api
+```
+
+2. Install dependencies:
+
+```bash
+yarn install
+```
+
+3. Create a `.env.local` file in the root directory:
+
+```env
+NEXT_PUBLIC_GRAPH_TOKEN=your_pinax_api_key_here
+```
+
+Replace `your_pinax_api_key_here` with your actual Pinax Network API key.
+
+### Running the Application
+
+```bash
+yarn start
+```
+
+Visit `http://localhost:3000/token-api` to access the application.
+
+## 📚 API Components
+
+### Token Holders Component
+
+Fetches and displays token holder information for any ERC20 token.
+
+```typescript
+// Example usage in your component
+import { GetHolders } from "./_components/GetHolders";
+
+export default function YourComponent() {
+    return (
+        <div>
+            <GetHolders />
+        </div>
+    );
+}
+```
+
+Example token addresses for testing:
+
+-   Ethereum (GRT): \`0xc944E90C64B2c07662A292be6244BDf05Cda44a7\`
+-   Arbitrum (ARB): \`0x912CE59144191C1204E64559FE8253a0e49E6548\`
+-   Base (cbETH): \`0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22\`
+-   BSC (BSC-USD): \`0x55d398326f99059fF775485246999027B3197955\`
+-   Optimism (OP): \`0x4200000000000000000000000000000000000042\`
+
+### Token Balances Component
+
+Retrieves token balances for any Ethereum address across supported networks.
+
+```typescript
+// Example usage
+import { GetBalances } from "./_components/GetBalances";
+
+export default function YourComponent() {
+    return (
+        <div>
+            <GetBalances />
+        </div>
+    );
+}
+```
+
+### Token Transfers Component
+
+Tracks token transfer events with detailed information.
+
+```typescript
+// Example usage
+import { GetTransfers } from "./_components/GetTransfers";
+
+export default function YourComponent() {
+    return (
+        <div>
+            <GetTransfers />
+        </div>
+    );
+}
+```
+
+### Token Metadata Component
+
+Fetches comprehensive token information.
+
+```typescript
+// Example usage
+import { GetMetadata } from "./_components/GetMetadata";
+
+export default function YourComponent() {
+    return (
+        <div>
+            <GetMetadata />
+        </div>
+    );
+}
+```
+
+## 🔑 API Authentication
+
+The application requires a Pinax Network API key for authentication. Follow these steps to set up your API key:
+
+1. Sign up for an account at [Pinax Network](https://pinax.network)
+2. Generate an API key from your dashboard
+3. Create a `.env.local` file in your project root:
+
+```env
+NEXT_PUBLIC_GRAPH_TOKEN=your_pinax_api_key_here
+```
+
+⚠️ **Important**: Never commit your `.env.local` file to version control. Make sure it's included in your `.gitignore`.
+
+## 🌐 Supported Networks
+
+The API supports the following networks:
+
+-   `mainnet`: Ethereum Mainnet
+-   `arbitrum-one`: Arbitrum
+-   `base`: Base
+-   `bsc`: Binance Smart Chain
+-   `optimism`: Optimism
+
+## 📝 API Response Types
+
+### Token Holder Response
+
+```typescript
+interface TokenHolder {
+    block_num: number;
+    timestamp: number;
+    date: string;
+    address: string;
+    amount: string;
+    decimals: number;
+    symbol: string;
+    network_id: string;
+    price_usd?: number;
+    value_usd?: number;
+}
+```
+
+### Token Balance Response
+
+```typescript
+interface TokenBalance {
+    block_num: number;
+    timestamp: number;
+    date: string;
+    contract_address: string;
+    amount: string;
+    decimals: number;
+    symbol: string;
+    network_id: string;
+    price_usd?: number;
+    value_usd?: number;
+}
+```
+
+## 🔄 Error Handling
+
+The application includes comprehensive error handling for common scenarios:
+
+-   Invalid contract addresses
+-   Network connectivity issues
+-   API rate limiting
+-   Invalid API keys
+
+Example error handling:
+
+```typescript
+try {
+    const response = await fetch(url.toString(), {
+        headers: {
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_GRAPH_TOKEN}`,
+        },
+    });
+
+    if (!response.ok) {
+        if (response.status === 404) {
+            throw new Error("Token not found or invalid contract address");
+        }
+        throw new Error("Failed to fetch token data");
+    }
+
+    const data = await response.json();
+    // Process data...
+} catch (error) {
+    console.error("Error:", error);
+    // Handle error...
+}
+```
+
+## 🎨 Styling
+
+The application uses Tailwind CSS for styling. Custom styles can be added in the respective component files.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
 # 🏗 Scaffold-ETH 2
 
 <h4 align="center">
@@ -9,11 +244,11 @@
 
 ⚙️ Built using NextJS, RainbowKit, Hardhat, Wagmi, Viem, and Typescript.
 
-- ✅ **Contract Hot Reload**: Your frontend auto-adapts to your smart contract as you edit it.
-- 🪝 **[Custom hooks](https://docs.scaffoldeth.io/hooks/)**: Collection of React hooks wrapper around [wagmi](https://wagmi.sh/) to simplify interactions with smart contracts with typescript autocompletion.
-- 🧱 [**Components**](https://docs.scaffoldeth.io/components/): Collection of common web3 components to quickly build your frontend.
-- 🔥 **Burner Wallet & Local Faucet**: Quickly test your application with a burner wallet and local faucet.
-- 🔐 **Integration with Wallet Providers**: Connect to different wallet providers and interact with the Ethereum network.
+-   ✅ **Contract Hot Reload**: Your frontend auto-adapts to your smart contract as you edit it.
+-   🪝 **[Custom hooks](https://docs.scaffoldeth.io/hooks/)**: Collection of React hooks wrapper around [wagmi](https://wagmi.sh/) to simplify interactions with smart contracts with typescript autocompletion.
+-   🧱 [**Components**](https://docs.scaffoldeth.io/components/): Collection of common web3 components to quickly build your frontend.
+-   🔥 **Burner Wallet & Local Faucet**: Quickly test your application with a burner wallet and local faucet.
+-   🔐 **Integration with Wallet Providers**: Connect to different wallet providers and interact with the Ethereum network.
 
 ![Debug Contracts tab](https://github.com/scaffold-eth/scaffold-eth-2/assets/55535804/b237af0c-5027-4849-a5c1-2e31495cccb1)
 
@@ -21,9 +256,9 @@
 
 Before you begin, you need to install the following tools:
 
-- [Node (>= v20.18.3)](https://nodejs.org/en/download/)
-- Yarn ([v1](https://classic.yarnpkg.com/en/docs/install/) or [v2+](https://yarnpkg.com/getting-started/install))
-- [Git](https://git-scm.com/downloads)
+-   [Node (>= v20.18.3)](https://nodejs.org/en/download/)
+-   Yarn ([v1](https://classic.yarnpkg.com/en/docs/install/) or [v2+](https://yarnpkg.com/getting-started/install))
+-   [Git](https://git-scm.com/downloads)
 
 ## Quickstart
 
@@ -62,9 +297,9 @@ Visit your app on: `http://localhost:3000`. You can interact with your smart con
 
 Run smart contract test with `yarn hardhat:test`
 
-- Edit your smart contracts in `packages/hardhat/contracts`
-- Edit your frontend homepage at `packages/nextjs/app/page.tsx`. For guidance on [routing](https://nextjs.org/docs/app/building-your-application/routing/defining-routes) and configuring [pages/layouts](https://nextjs.org/docs/app/building-your-application/routing/pages-and-layouts) checkout the Next.js documentation.
-- Edit your deployment scripts in `packages/hardhat/deploy`
+-   Edit your smart contracts in `packages/hardhat/contracts`
+-   Edit your frontend homepage at `packages/nextjs/app/page.tsx`. For guidance on [routing](https://nextjs.org/docs/app/building-your-application/routing/defining-routes) and configuring [pages/layouts](https://nextjs.org/docs/app/building-your-application/routing/pages-and-layouts) checkout the Next.js documentation.
+-   Edit your deployment scripts in `packages/hardhat/deploy`
 
 ## 🚀 Setup The Graph Integration
 
@@ -209,8 +444,6 @@ After doing so, navigate to http://localhost:3000/subgraph and you should be abl
 
 If you want to look at the query code for this, it can be found the component located in the subgraph folder `packages/nextjs/app/subgraph/_components/GreetingsTable.tsx`
 
-
-
 #### ✅ Side Quest: Run a Matchstick Test ✅
 
 Matchstick is a [unit testing framework](https://thegraph.com/docs/en/developing/unit-testing-framework/), developed by [LimeChain](https://limechain.tech/), that enables subgraph developers to test their mapping logic in a sandboxed environment and deploy their subgraphs with confidence!
@@ -255,36 +488,41 @@ All 1 tests passed! 😎
 > NOTE: This step requires [deployment of contract](https://docs.scaffoldeth.io/deploying/deploy-smart-contracts) to live network. Checkout list of [supported networks](https://thegraph.com/docs/networks).
 
 1. Update the `packages/subgraph/subgraph.yaml` file with your contract address, network name, start block number(optional) :
-   ```diff
-   ...
-   -     network: localhost
-   +     network: sepolia
-         source:
-           abi: YourContract
-   +       address: "0x54FE7f8Db97e102D3b7d86cc34D885B735E31E8e"
-   +       startBlock: 5889410
-   ...
-   ```
-  TIP: For `startBlock` you can use block number of your deployed contract, which can be found by visiting deployed transaction hash in blockexplorer.
+
+    ```diff
+    ...
+    -     network: localhost
+    +     network: sepolia
+          source:
+            abi: YourContract
+    +       address: "0x54FE7f8Db97e102D3b7d86cc34D885B735E31E8e"
+    +       startBlock: 5889410
+    ...
+    ```
+
+    TIP: For `startBlock` you can use block number of your deployed contract, which can be found by visiting deployed transaction hash in blockexplorer.
 
 2. Create a new subgraph on [Subgraph Studio](https://thegraph.com/studio) and get "SUBGRAPH SLUG" and "DEPLOY KEY".
 
 3. Authenticate with the graph CLI:
-   ```sh
-   yarn graph auth --studio <DEPLOY KEY>
-   ```
+
+    ```sh
+    yarn graph auth --studio <DEPLOY KEY>
+    ```
 
 4. Deploy the subgraph to TheGraph Studio:
-   ```sh
-   yarn graph deploy --studio <SUBGRAPH SLUG>
-   ```
-   Once deployed, the CLI should output the Subgraph endpoints. Copy the HTTP endpoint and test your queries.
+
+    ```sh
+    yarn graph deploy --studio <SUBGRAPH SLUG>
+    ```
+
+    Once deployed, the CLI should output the Subgraph endpoints. Copy the HTTP endpoint and test your queries.
 
 5. Update `packages/nextjs/components/ScaffoldEthAppWithProviders.tsx` to use the above HTTP subgraph endpoint:
-   ```diff
-   - const subgraphUri = "http://localhost:8000/subgraphs/name/scaffold-eth/your-contract";
-   + const subgraphUri = 'YOUR_SUBGRAPH_ENDPOINT';
-   ```
+    ```diff
+    - const subgraphUri = "http://localhost:8000/subgraphs/name/scaffold-eth/your-contract";
+    + const subgraphUri = 'YOUR_SUBGRAPH_ENDPOINT';
+    ```
 
 ## A list of all available root commands
 
@@ -383,6 +621,7 @@ yarn subgraph:deploy
 ```
 
 Deploy a subgraph to The Graph Network.
+
 ## Documentation
 
 Visit our [docs](https://docs.scaffoldeth.io) to learn how to start building with Scaffold-ETH 2.

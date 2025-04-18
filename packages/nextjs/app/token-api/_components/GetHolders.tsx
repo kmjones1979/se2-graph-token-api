@@ -81,17 +81,34 @@ export const GetHolders = () => {
   const [error, setError] = useState<string | null>(null);
   const [orderBy, setOrderBy] = useState<string>("desc");
   const [limit, setLimit] = useState<number>(50);
+  const [page, setPage] = useState<number>(1);
+
+  // Example token addresses for testing
+  const exampleTokens = {
+    mainnet: "0xc944E90C64B2c07662A292be6244BDf05Cda44a7", // GRT Token
+    "arbitrum-one": "0x912CE59144191C1204E64559FE8253a0e49E6548", // ARB Token
+    base: "0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22", // cbETH
+    bsc: "0x55d398326f99059fF775485246999027B3197955", // BSC-USD
+    optimism: "0x4200000000000000000000000000000000000042", // OP Token
+  };
 
   // Handle network change
   const handleNetworkChange = (newNetwork: string) => {
     setSelectedNetwork(newNetwork);
-    setHolders([]); // Clear existing holders
+    setHolders([]);
     setError(null);
+    setPage(1); // Reset pagination when network changes
   };
 
   const fetchHolders = async () => {
     if (!contractAddress) {
       setError("Please enter a contract address");
+      return;
+    }
+
+    // Basic validation for Ethereum address format
+    if (!/^0x[a-fA-F0-9]{40}$/.test(contractAddress)) {
+      setError("Please enter a valid ERC20 contract address");
       return;
     }
 
@@ -105,11 +122,13 @@ export const GetHolders = () => {
 
       // Add query parameters
       url.searchParams.append("network_id", selectedNetwork);
-      url.searchParams.append("order_by", orderBy);
+      url.searchParams.append("order-by", orderBy); // Fixed: Changed from order_by to order-by
       url.searchParams.append("limit", limit.toString());
+      url.searchParams.append("page", page.toString());
 
       console.log(`🌐 Making API request to: ${url.toString()}`);
       console.log(`🔑 Using network: ${selectedNetwork}`);
+      console.log(`📝 Contract Address: ${contractAddress}`);
 
       const response = await fetch(url.toString(), {
         method: "GET",
@@ -118,30 +137,41 @@ export const GetHolders = () => {
           Authorization: `Bearer ${process.env.NEXT_PUBLIC_GRAPH_TOKEN}`,
           "Content-Type": "application/json",
         },
-        cache: "no-store", // Disable caching
+        cache: "no-store",
       });
 
+      const responseData = await response.json();
+      console.log("📊 API Response:", responseData);
+
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("❌ API Error Response:", errorText);
-        throw new Error(`API request failed with status ${response.status}: ${errorText}`);
+        if (response.status === 404) {
+          throw new Error(`No holders found for this token contract. Please verify:
+            1. The contract address is correct
+            2. The contract is an ERC20 token
+            3. The selected network is correct (currently: ${selectedNetwork})
+            
+            Try these example tokens:
+            - Mainnet (GRT): ${exampleTokens.mainnet}
+            - Arbitrum (ARB): ${exampleTokens["arbitrum-one"]}
+            - Base (cbETH): ${exampleTokens.base}
+            - BSC (BSC-USD): ${exampleTokens.bsc}
+            - Optimism (OP): ${exampleTokens.optimism}`);
+        } else {
+          throw new Error(responseData.message || "Failed to fetch holders");
+        }
       }
 
-      const data: ApiResponse = await response.json();
+      setHolders(responseData.data || []);
 
-      // Detailed response logging
-      console.log("📊 Full API Response:", JSON.stringify(data, null, 2));
       console.log(`📈 Response Statistics:
-        - Number of Holders: ${data.data?.length || 0}
+        - Number of Holders: ${responseData.data?.length || 0}
         - Network: ${selectedNetwork}
         - Order: ${orderBy}
+        - Page: ${page}
       `);
-
-      setHolders(data.data || []);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "An error occurred";
       console.error("❌ Error fetching holders:", err);
-      setError(errorMessage);
+      setError(err instanceof Error ? err.message : "An error occurred while fetching holders");
       setHolders([]);
     } finally {
       setIsLoading(false);
@@ -162,6 +192,9 @@ export const GetHolders = () => {
                 onChange={setContractAddress}
                 placeholder="Enter token contract address"
               />
+              <div className="mt-2 text-sm opacity-70">
+                Example for {selectedNetwork}: {exampleTokens[selectedNetwork as keyof typeof exampleTokens]}
+              </div>
             </div>
             <div className="w-full md:w-48">
               <label className="label">
@@ -194,7 +227,7 @@ export const GetHolders = () => {
             </div>
             <div className="w-full md:w-48">
               <label className="label">
-                <span className="label-text text-base">Number of Holders</span>
+                <span className="label-text text-base">Results per Page</span>
               </label>
               <select
                 className="select select-bordered w-full"
@@ -208,7 +241,24 @@ export const GetHolders = () => {
               </select>
             </div>
           </div>
-          <div className="card-actions justify-end mt-4">
+          <div className="flex justify-between items-center mt-4">
+            <div className="flex gap-2">
+              <button
+                className="btn btn-sm"
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1 || isLoading}
+              >
+                Previous
+              </button>
+              <span className="py-1">Page {page}</span>
+              <button
+                className="btn btn-sm"
+                onClick={() => setPage(p => p + 1)}
+                disabled={isLoading || holders.length < limit}
+              >
+                Next
+              </button>
+            </div>
             <button
               className={`btn btn-primary ${isLoading ? "loading" : ""}`}
               onClick={fetchHolders}
