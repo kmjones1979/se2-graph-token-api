@@ -18,12 +18,12 @@ const EVM_NETWORKS: EVMNetwork[] = [
   { id: "optimism", name: "Optimism" },
 ];
 
-// Define TypeScript interfaces for the actual API response
-interface TokenBalance {
+// Define TypeScript interfaces for the holders API response
+interface TokenHolder {
   block_num: number;
-  datetime: string;
+  timestamp: number;
   date: string;
-  contract: string;
+  address: string;
   amount: string;
   decimals: number;
   symbol: string;
@@ -33,41 +33,65 @@ interface TokenBalance {
 }
 
 interface ApiResponse {
-  data: TokenBalance[];
+  data: TokenHolder[];
   statistics: {
     bytes_read: number;
     rows_read: number;
     elapsed: number;
   };
-  pagination: {
-    previous_page: number;
-    current_page: number;
-    next_page: number;
-    total_pages: number;
-  };
-  results: number;
-  total_results: number;
-  request_time: string;
-  duration_ms: number;
 }
 
-export const GetBalances = () => {
-  const [address, setAddress] = useState<string>("");
+// Helper function to estimate date from block number
+const estimateDateFromBlock = (blockNum: number, networkId: string): Date => {
+  // Current block numbers as of May 2024 (conservative estimates)
+  const currentBlock =
+    {
+      mainnet: 19200000, // Ethereum mainnet
+      "arbitrum-one": 175000000, // Arbitrum
+      base: 10000000, // Base
+      bsc: 34000000, // BSC
+      optimism: 110000000, // Optimism
+    }[networkId] || 19200000;
+
+  // Average block time in seconds for different networks
+  const blockTime =
+    {
+      mainnet: 12,
+      "arbitrum-one": 0.25,
+      base: 2,
+      bsc: 3,
+      optimism: 2,
+    }[networkId] || 12;
+
+  // Calculate seconds since the block
+  const blockDiff = Math.max(0, currentBlock - blockNum); // Ensure non-negative
+  const secondsAgo = blockDiff * blockTime;
+
+  // Calculate the date, ensuring it's not in the future
+  const now = new Date();
+  const estimatedDate = new Date(now.getTime() - secondsAgo * 1000);
+  return estimatedDate > now ? now : estimatedDate;
+};
+
+export const GetHolders = () => {
+  const [contractAddress, setContractAddress] = useState<string>("");
   const [selectedNetwork, setSelectedNetwork] = useState<string>("mainnet");
-  const [balances, setBalances] = useState<TokenBalance[]>([]);
+  const [holders, setHolders] = useState<TokenHolder[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [orderBy, setOrderBy] = useState<string>("desc");
+  const [limit, setLimit] = useState<number>(50);
 
   // Handle network change
   const handleNetworkChange = (newNetwork: string) => {
     setSelectedNetwork(newNetwork);
-    setBalances([]); // Clear existing balances
+    setHolders([]); // Clear existing holders
     setError(null);
   };
 
-  const fetchBalances = async () => {
-    if (!address) {
-      setError("Please enter an address");
+  const fetchHolders = async () => {
+    if (!contractAddress) {
+      setError("Please enter a contract address");
       return;
     }
 
@@ -77,10 +101,12 @@ export const GetBalances = () => {
     try {
       // Construct URL with correct endpoint structure
       const baseUrl = "https://token-api.thegraph.com";
-      const url = new URL(`${baseUrl}/balances/evm/${address}`, baseUrl);
+      const url = new URL(`${baseUrl}/holders/evm/${contractAddress}`, baseUrl);
 
-      // Add network as a query parameter
+      // Add query parameters
       url.searchParams.append("network_id", selectedNetwork);
+      url.searchParams.append("order_by", orderBy);
+      url.searchParams.append("limit", limit.toString());
 
       console.log(`🌐 Making API request to: ${url.toString()}`);
       console.log(`🔑 Using network: ${selectedNetwork}`);
@@ -106,18 +132,17 @@ export const GetBalances = () => {
       // Detailed response logging
       console.log("📊 Full API Response:", JSON.stringify(data, null, 2));
       console.log(`📈 Response Statistics:
-        - Total Results: ${data.total_results}
-        - Current Page: ${data.pagination?.current_page}
+        - Number of Holders: ${data.data?.length || 0}
         - Network: ${selectedNetwork}
-        - Number of Balances: ${data.data?.length || 0}
+        - Order: ${orderBy}
       `);
 
-      setBalances(data.data || []);
+      setHolders(data.data || []);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "An error occurred";
-      console.error("❌ Error fetching balances:", err);
+      console.error("❌ Error fetching holders:", err);
       setError(errorMessage);
-      setBalances([]);
+      setHolders([]);
     } finally {
       setIsLoading(false);
     }
@@ -130,9 +155,13 @@ export const GetBalances = () => {
           <div className="flex flex-col md:flex-row gap-6">
             <div className="flex-grow">
               <label className="label">
-                <span className="label-text text-xl font-bold">Enter Ethereum Address</span>
+                <span className="label-text text-xl font-bold">Enter Token Contract Address</span>
               </label>
-              <AddressInput value={address} onChange={setAddress} placeholder="Enter any address" />
+              <AddressInput
+                value={contractAddress}
+                onChange={setContractAddress}
+                placeholder="Enter token contract address"
+              />
             </div>
             <div className="w-full md:w-48">
               <label className="label">
@@ -150,14 +179,42 @@ export const GetBalances = () => {
                 ))}
               </select>
             </div>
+            <div className="w-full md:w-48">
+              <label className="label">
+                <span className="label-text text-base">Sort Order</span>
+              </label>
+              <select
+                className="select select-bordered w-full"
+                value={orderBy}
+                onChange={e => setOrderBy(e.target.value)}
+              >
+                <option value="desc">Highest Balance First</option>
+                <option value="asc">Lowest Balance First</option>
+              </select>
+            </div>
+            <div className="w-full md:w-48">
+              <label className="label">
+                <span className="label-text text-base">Number of Holders</span>
+              </label>
+              <select
+                className="select select-bordered w-full"
+                value={limit}
+                onChange={e => setLimit(Number(e.target.value))}
+              >
+                <option value={10}>10 Holders</option>
+                <option value={50}>50 Holders</option>
+                <option value={100}>100 Holders</option>
+                <option value={500}>500 Holders</option>
+              </select>
+            </div>
           </div>
           <div className="card-actions justify-end mt-4">
             <button
               className={`btn btn-primary ${isLoading ? "loading" : ""}`}
-              onClick={fetchBalances}
-              disabled={isLoading || !address}
+              onClick={fetchHolders}
+              disabled={isLoading || !contractAddress}
             >
-              {isLoading ? "Fetching..." : "Fetch Balances"}
+              {isLoading ? "Fetching..." : "Fetch Holders"}
             </button>
           </div>
         </div>
@@ -166,7 +223,7 @@ export const GetBalances = () => {
       {isLoading && (
         <div className="alert">
           <span className="loading loading-spinner loading-md"></span>
-          <span>Loading token balances on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}...</span>
+          <span>Loading token holders on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}...</span>
         </div>
       )}
 
@@ -189,25 +246,31 @@ export const GetBalances = () => {
         </div>
       )}
 
-      {!isLoading && !error && address && (
+      {!isLoading && !error && contractAddress && (
         <div className="card bg-base-100 shadow-xl">
           <div className="card-body">
             <h2 className="card-title mb-4">
-              Token Balances on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}
+              Token Holders on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}
             </h2>
             <div className="flex flex-col gap-2">
-              {balances && balances.length > 0 ? (
-                balances.map((token, index) => (
-                  <div key={`${token.contract}-${index}`} className="card bg-base-200 shadow-sm">
+              {holders && holders.length > 0 ? (
+                holders.map((holder, index) => (
+                  <div key={`${holder.address}-${index}`} className="card bg-base-200 shadow-sm">
                     <div className="card-body p-4">
                       <div className="flex flex-col">
-                        <div className="text-lg font-semibold">{token.symbol}</div>
-                        <div className="text-xl">
-                          {(Number(token.amount) / Math.pow(10, token.decimals)).toFixed(6)} {token.symbol}
+                        <div className="flex justify-between items-center">
+                          <div className="text-lg font-semibold">Holder #{index + 1}</div>
+                          <div className="text-sm opacity-70">{holder.address}</div>
                         </div>
-                        {token.value_usd && <div className="text-sm text-success">${token.value_usd.toFixed(2)}</div>}
+                        <div className="text-xl">
+                          {(Number(holder.amount) / Math.pow(10, holder.decimals)).toFixed(6)} {holder.symbol}
+                        </div>
+                        {holder.value_usd && <div className="text-sm text-success">${holder.value_usd.toFixed(2)}</div>}
                         <div className="text-xs opacity-70">
-                          Last updated: {new Date(token.datetime).toLocaleDateString()}
+                          Last updated:{" "}
+                          {holder.timestamp
+                            ? new Date(holder.timestamp * 1000).toLocaleString()
+                            : estimateDateFromBlock(holder.block_num, holder.network_id).toLocaleString()}
                         </div>
                       </div>
                     </div>
@@ -229,7 +292,7 @@ export const GetBalances = () => {
                     />
                   </svg>
                   <span>
-                    No token balances found for this address on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}
+                    No token holders found for this contract on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}
                   </span>
                 </div>
               )}
