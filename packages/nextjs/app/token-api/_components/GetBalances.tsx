@@ -124,10 +124,27 @@ export const GetBalances = () => {
   };
 
   return (
-    <details className="collapse bg-base-200" open>
-      <summary className="collapse-title text-xl font-bold">
-        💰 Token Balances - Check token balances for any address
+    <details className="collapse bg-base-200 shadow-lg" open>
+      <summary className="collapse-title text-xl font-bold cursor-pointer hover:bg-base-300">
+        <div className="flex justify-between items-center">
+          <span>💰 Token Balances - Check token balances for any address</span>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-6 w-6 transform transition-transform duration-200 details-toggle"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+          </svg>
+        </div>
       </summary>
+      <style jsx>{`
+        details[open] .details-toggle {
+          transform: rotate(180deg);
+        }
+      `}</style>
       <div className="collapse-content">
         <div className="flex flex-col gap-6">
           <div className="card bg-base-100 shadow-xl">
