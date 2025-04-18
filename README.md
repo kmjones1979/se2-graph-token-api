@@ -23,7 +23,7 @@ A modern, responsive web application built with Next.js that interacts with [Pin
 1. Clone the repository:
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/kmjones1979/se2-graph-token-api
 cd se2-graph-token-api
 ```
 
@@ -35,11 +35,17 @@ yarn install
 
 3. Create a `.env.local` file in the root directory:
 
+1. Visit [The Graph Market](https://thegraph.market/)
+1. Navigate to the "Token API" tab
+1. Click "Get API Key"
+1. Follow the authentication process
+1. Copy your API key
+
 ```env
-NEXT_PUBLIC_GRAPH_TOKEN=your_pinax_api_key_here
+NEXT_PUBLIC_GRAPH_TOKEN=your_graph_api_token_here
 ```
 
-Replace `your_pinax_api_key_here` with your actual Pinax Network API key.
+Replace `your_graph_api_token_here` with your actual Graph API Token
 
 ### Running the Application
 
@@ -428,7 +434,7 @@ Go ahead and head over to your subgraph endpoint and take a look!
   }
 ```
 
-> If all is well and you’ve sent a transaction to your smart contract then you will see a similar data output!
+> If all is well and you've sent a transaction to your smart contract then you will see a similar data output!
 
 #### ✅ Step 4: Create Graph Client Artifacts ✅
 
@@ -633,3 +639,55 @@ To know more about its features, check out our [website](https://scaffoldeth.io)
 We welcome contributions to Scaffold-ETH 2!
 
 Please see [CONTRIBUTING.MD](https://github.com/scaffold-eth/scaffold-eth-2/blob/main/CONTRIBUTING.md) for more information and guidelines for contributing to Scaffold-ETH 2.
+
+## Getting Started
+
+### 1. Get Your API Key
+
+1. Visit [The Graph Market](https://thegraph.market/)
+2. Navigate to the "Token API" tab
+3. Click "Get API Key"
+4. Follow the authentication process
+5. Copy your API Token
+
+### 2. Set Up Environment Variables
+
+Create a `.env.local` file in the root directory and add your API key:
+
+```bash
+NEXT_PUBLIC_GRAPH_TOKEN=your_api_key_here
+```
+
+### 3. Install Dependencies
+
+```bash
+yarn install
+```
+
+### 4. Start the Development Server
+
+```bash
+yarn start
+```
+
+Open [http://localhost:3000](http://localhost:3000) to view the application.
+
+## Features
+
+-   View token metadata across multiple EVM networks
+-   Check token balances for any address
+-   Track token transfers
+-   List token holders
+-   Support for multiple networks:
+    -   Ethereum Mainnet
+    -   Base
+    -   Arbitrum
+    -   BSC
+    -   Optimism
+
+## Built With
+
+-   Next.js
+-   Scaffold-ETH 2
+-   Tailwind CSS
+-   DaisyUI
