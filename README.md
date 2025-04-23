@@ -8,7 +8,11 @@ A modern, responsive web application built with Next.js that interacts with [The
 -   💰 Token Balances: Check balances for any address
 -   🔄 Token Transfers: Track token movement with detailed transaction info
 -   ℹ️ Token Metadata: Get comprehensive token information
--   🌐 Multi-Network Support: Works across Ethereum, Base, Arbitrum, BSC, and Optimism
+-   📈 Historical Balances: Track token balance changes over time
+-   📊 Pool OHLC Data: View price history for DEX liquidity pools
+-   💹 Token OHLC Data: Track price movements for individual tokens
+-   💱 Token Swaps: Monitor DEX swap events across networks
+-   🌐 Multi-Network Support: Works across Ethereum, Base, Arbitrum, BSC, Optimism, and Polygon
 
 ## 🛠️ Setup
 
@@ -113,14 +117,6 @@ export default function YourComponent() {
 
 Retrieves token balances for any Ethereum address across supported networks.
 
-Example token addresses for testing:
-
--   Ethereum (GRT): \`0xc944E90C64B2c07662A292be6244BDf05Cda44a7\`
--   Arbitrum (ARB): \`0x912CE59144191C1204E64559FE8253a0e49E6548\`
--   Base (cbETH): \`0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22\`
--   BSC (BSC-USD): \`0x55d398326f99059fF775485246999027B3197955\`
--   Optimism (OP): \`0x4200000000000000000000000000000000000042\`
-
 ```typescript
 // Example usage
 import { GetBalances } from "./_components/GetBalances";
@@ -134,18 +130,114 @@ export default function YourComponent() {
 }
 ```
 
+### Historical Balances Component
+
+Track token balance changes over time for any wallet address.
+
+```typescript
+// Example usage
+import { GetHistorical } from "./_components/GetHistorical";
+
+export default function YourComponent() {
+    return (
+        <div>
+            <GetHistorical />
+        </div>
+    );
+}
+```
+
+### DEX Pool OHLC Component
+
+View price history for liquidity pools with OHLCV data.
+
+```typescript
+// Example usage
+import { GetOHLCByPool } from "./_components/GetOHLCByPool";
+
+export default function YourComponent() {
+    return (
+        <div>
+            <GetOHLCByPool />
+        </div>
+    );
+}
+```
+
+### Token OHLC Component
+
+Track price movements for individual token contracts.
+
+```typescript
+// Example usage
+import { GetOHLCByContract } from "./_components/GetOHLCByContract";
+
+export default function YourComponent() {
+    return (
+        <div>
+            <GetOHLCByContract />
+        </div>
+    );
+}
+```
+
+### DEX Swaps Component
+
+Monitor swap events across DEXs on multiple networks.
+
+```typescript
+// Example usage
+import { GetSwaps } from "./_components/GetSwaps";
+
+export default function YourComponent() {
+    return (
+        <div>
+            <GetSwaps />
+        </div>
+    );
+}
+```
+
+## 🔍 Example Addresses for Testing
+
+### Token Contracts
+
+-   Ethereum (GRT): `0xc944E90C64B2c07662A292be6244BDf05Cda44a7`
+-   Arbitrum (ARB): `0x912CE59144191C1204E64559FE8253a0e49E6548`
+-   Base (cbETH): `0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22`
+-   BSC (BSC-USD): `0x55d398326f99059fF775485246999027B3197955`
+-   Optimism (OP): `0x4200000000000000000000000000000000000042`
+
+### DEX Pool Addresses
+
+-   Ethereum (ETH/USDC): `0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640`
+-   Base (ETH/USDbC): `0x4c36388be6f416a29c8d8eee81c771ce6be14b18`
+-   Arbitrum (ETH/USDC): `0xc31e54c7a869b9fcbecc14363cf510d1c41fa443`
+-   BSC (BNB/BUSD): `0x58f876857a02d6762e0101bb5c46a8c1ed44dc16`
+-   Optimism (ETH/USDC): `0x85149247691df622eaf1a8bd0cafd40bc45154a9`
+
 ## 🔑 API Authentication
 
-The application requires a Graph API Token for authentication. Follow these steps to set up your API key:
+The application requires a Graph API Token for authentication. The implementation uses a proxy approach for security:
 
-1. Visit [The Graph Market](https://thegraph.market/)
-2. Navigate to the "Token API" tab
-3. Click "Get API Key"
-4. Follow the authentication process
-5. Copy your API Token
+1. Requests are made to a local API route (`/api/token-proxy`)
+2. The proxy adds authentication headers and forwards to the Graph Token API
+3. This keeps API keys secure and avoids CORS issues
 
-```env
-NEXT_PUBLIC_GRAPH_TOKEN=your_graph_api_token_here
+```typescript
+// Example of how API requests are made
+const url = new URL("/api/token-proxy", window.location.origin);
+url.searchParams.append("path", `transfers/evm/${contractAddress}`);
+url.searchParams.append("network_id", selectedNetwork);
+
+const response = await fetch(url.toString(), {
+    method: "GET",
+    headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+    },
+    cache: "no-store",
+});
 ```
 
 ⚠️ **Important**: Never commit your `.env.local` file to version control. Make sure it's included in your `.gitignore`.
@@ -159,80 +251,108 @@ The API supports the following networks:
 -   `base`: Base
 -   `bsc`: Binance Smart Chain
 -   `optimism`: Optimism
+-   `matic`: Polygon
+-   `unichain`: Unichain (for some endpoints)
 
-## 📝 API Response Types
+## 🧩 API Endpoints
 
-### Token Holder Response
+The components interact with these Token API endpoints:
+
+| Component         | Endpoint                             | Description              |
+| ----------------- | ------------------------------------ | ------------------------ |
+| GetMetadata       | `/tokens/evm/{contract}`             | Retrieves token metadata |
+| GetBalances       | `/balances/evm/{address}`            | Fetches token balances   |
+| GetTransfers      | `/transfers/evm/{address}`           | Lists token transfers    |
+| GetHolders        | `/holders/evm/{contract}`            | Shows token holders      |
+| GetHistorical     | `/historical/balances/evm/{address}` | Historical balance data  |
+| GetOHLCByPool     | `/ohlc/pools/evm/{pool}`             | Price history for pools  |
+| GetOHLCByContract | `/ohlc/prices/evm/{contract}`        | Price history for tokens |
+| GetSwaps          | `/swaps/evm`                         | DEX swap events          |
+
+## 📝 Key Data Structures
+
+### OHLC Price Data
 
 ```typescript
-interface TokenHolder {
-    block_num: number;
-    timestamp: number;
-    date: string;
-    address: string;
-    amount: string;
-    decimals: number;
-    symbol: string;
+interface OHLCData {
+    datetime: string;
     network_id: string;
-    price_usd?: number;
-    value_usd?: number;
+    pair?: string;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume: number;
+    uaw?: number; // Unique active wallets
+    transactions?: number;
 }
 ```
 
-### Token Balance Response
+### Historical Balance Data
 
 ```typescript
-interface TokenBalance {
-    block_num: number;
-    timestamp: number;
-    date: string;
-    contract_address: string;
-    amount: string;
-    decimals: number;
+interface HistoricalBalance {
+    datetime: string;
+    contract: string;
+    name: string;
     symbol: string;
-    network_id: string;
-    price_usd?: number;
-    value_usd?: number;
+    decimals: string;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
 }
 ```
 
-## 🔄 Error Handling
+## 📱 Component Features
 
-The application includes comprehensive error handling for common scenarios:
+All components share these developer-friendly features:
 
--   Invalid contract addresses
--   Network connectivity issues
--   API rate limiting
--   Invalid API keys
+-   **Flexible Parameters**: Optional query parameters for customization
+-   **Minimal Parameter Mode**: For easier initial testing
+-   **Error Handling**: Comprehensive error states with user-friendly messages
+-   **Loading States**: Clear loading indicators
+-   **Pagination**: For navigating large datasets
+-   **Responsive Design**: Works on mobile and desktop
+-   **Address Components**: Uses Scaffold-ETH's `<Address>` component for Ethereum addresses
 
-Example error handling:
+## 🔄 Error Handling Examples
+
+The components include robust error handling:
 
 ```typescript
 try {
     const response = await fetch(url.toString(), {
+        method: "GET",
         headers: {
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_GRAPH_TOKEN}`,
+            Accept: "application/json",
+            "Content-Type": "application/json",
         },
+        cache: "no-store",
     });
 
     if (!response.ok) {
-        if (response.status === 404) {
-            throw new Error("Token not found or invalid contract address");
-        }
-        throw new Error("Failed to fetch token data");
+        const errorText = await response.text();
+        console.error("❌ API Error Response:", errorText);
+        throw new Error(
+            `API request failed with status ${response.status}: ${errorText}`
+        );
     }
 
     const data = await response.json();
     // Process data...
-} catch (error) {
-    console.error("Error:", error);
-    // Handle error...
+} catch (err) {
+    const errorMessage =
+        err instanceof Error ? err.message : "An error occurred";
+    console.error("❌ Error fetching data:", err);
+    setError(errorMessage);
+    // Handle UI state...
 }
 ```
 
 ## 🎨 Styling
 
-The application uses Tailwind CSS for styling. Custom styles can be added in the respective component files.
+The application uses Tailwind CSS with DaisyUI components for a consistent, responsive UI.
 
 ## 🤝 Contributing
 
