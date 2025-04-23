@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AddressInput } from "~~/components/scaffold-eth";
+import { Address, AddressInput } from "~~/components/scaffold-eth";
 
 // Define supported EVM networks
 interface EVMNetwork {
@@ -116,17 +116,17 @@ export const GetHolders = () => {
     setError(null);
 
     try {
-      // Construct URL with correct endpoint structure
-      const baseUrl = "https://token-api.thegraph.com";
-      const url = new URL(`${baseUrl}/holders/evm/${contractAddress}`, baseUrl);
+      // Use the token-proxy API route
+      const url = new URL("/api/token-proxy", window.location.origin);
 
-      // Add query parameters
+      // Add the path and query parameters
+      url.searchParams.append("path", `holders/evm/${contractAddress}`);
       url.searchParams.append("network_id", selectedNetwork);
-      url.searchParams.append("order-by", orderBy); // Fixed: Changed from order_by to order-by
+      url.searchParams.append("order-by", orderBy);
       url.searchParams.append("limit", limit.toString());
       url.searchParams.append("page", page.toString());
 
-      console.log(`🌐 Making API request to: ${url.toString()}`);
+      console.log(`🌐 Making API request via proxy: ${url.toString()}`);
       console.log(`🔑 Using network: ${selectedNetwork}`);
       console.log(`📝 Contract Address: ${contractAddress}`);
 
@@ -134,7 +134,6 @@ export const GetHolders = () => {
         method: "GET",
         headers: {
           Accept: "application/json",
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_GRAPH_TOKEN}`,
           "Content-Type": "application/json",
         },
         cache: "no-store",
@@ -332,7 +331,9 @@ export const GetHolders = () => {
                           <div className="flex flex-col">
                             <div className="flex justify-between items-center">
                               <div className="text-lg font-semibold">Holder #{index + 1}</div>
-                              <div className="text-sm opacity-70">{holder.address}</div>
+                              <div className="text-sm opacity-70">
+                                <Address address={holder.address} />
+                              </div>
                             </div>
                             <div className="text-xl">
                               {(Number(holder.amount) / Math.pow(10, holder.decimals)).toFixed(6)} {holder.symbol}

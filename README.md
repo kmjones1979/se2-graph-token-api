@@ -43,9 +43,10 @@ yarn install
 
 ```env
 NEXT_PUBLIC_GRAPH_TOKEN=your_graph_api_token_here
+NEXT_PUBLIC_GRAPH_API_URL=https://token-api.thegraph.com
 ```
 
-Replace `your_graph_api_token_here` with your actual Graph API Token
+Replace `your_graph_api_token_here` with your actual Graph API Token. The `NEXT_PUBLIC_GRAPH_API_URL` is optional and defaults to `https://token-api.thegraph.com` if not specified.
 
 ### Running the Application
 

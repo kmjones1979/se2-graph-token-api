@@ -102,21 +102,20 @@ export const GetMetadata = () => {
     setError(null);
 
     try {
-      // Construct URL with correct endpoint structure
-      const baseUrl = "https://token-api.thegraph.com";
-      const url = new URL(`${baseUrl}/tokens/evm/${contractAddress}`, baseUrl);
+      // Use the token-proxy API route
+      const url = new URL("/api/token-proxy", window.location.origin);
 
-      // Add network as a query parameter
+      // Add the path and query parameters
+      url.searchParams.append("path", `tokens/evm/${contractAddress}`);
       url.searchParams.append("network_id", selectedNetwork);
 
-      console.log(`🌐 Making API request to: ${url.toString()}`);
+      console.log(`🌐 Making API request via proxy: ${url.toString()}`);
       console.log(`🔑 Using network: ${selectedNetwork}`);
 
       const response = await fetch(url.toString(), {
         method: "GET",
         headers: {
           Accept: "application/json",
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_GRAPH_TOKEN}`,
           "Content-Type": "application/json",
         },
         cache: "no-store", // Disable caching

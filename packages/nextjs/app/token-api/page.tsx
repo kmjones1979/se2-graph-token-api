@@ -1,8 +1,13 @@
 "use client";
 
 import { GetBalances } from "./_components/GetBalances";
+import { GetHistorical } from "./_components/GetHistorical";
 import { GetHolders } from "./_components/GetHolders";
 import { GetMetadata } from "./_components/GetMetadata";
+import { GetOHLCByContract } from "./_components/GetOHLCByContract";
+import { GetOHLCByPool } from "./_components/GetOHLCByPool";
+import { GetPools } from "./_components/GetPools";
+import { GetSwaps } from "./_components/GetSwaps";
 import { GetTransfers } from "./_components/GetTransfers";
 
 export default function TokenAPI() {
@@ -13,6 +18,11 @@ export default function TokenAPI() {
       <GetHolders />
       <GetTransfers />
       <GetMetadata />
+      <GetHistorical />
+      <GetOHLCByPool />
+      <GetOHLCByContract />
+      <GetPools />
+      <GetSwaps />
     </div>
   );
 }
