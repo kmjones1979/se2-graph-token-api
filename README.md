@@ -640,6 +640,340 @@ Please reference the [Scaffold-ETH docs](https://docs.scaffoldeth.io/)
 
 Please reference the [Scaffold-ETH docs](https://docs.scaffoldeth.io/)
 
+## 🪝 Token API Hooks Documentation
+
+The Token API Explorer provides a set of React hooks to interact with The Graph Token API. These hooks handle data fetching, caching, error handling, and state management, making it easier to integrate token data into your application.
+
+### useTokenApi
+
+The base hook that all other hooks extend. It provides the core functionality for interacting with the Token API.
+
+```typescript
+import { useTokenApi } from "~~/app/token-api/_hooks/useTokenApi";
+
+// Usage example
+const { data, isLoading, error, refetch, lastUpdated } =
+    useTokenApi<YourDataType>(
+        "endpoint/path",
+        { param1: "value1", param2: "value2" },
+        { skip: false, refetchInterval: 30000 }
+    );
+```
+
+**Parameters:**
+
+-   `endpoint`: API endpoint path without leading slash
+-   `params`: Query parameters object
+-   `options`:
+    -   `skip`: Whether to skip the API call (default: false)
+    -   `refetchInterval`: Interval in milliseconds to refetch data
+
+**Returns:**
+
+-   `data`: The fetched data or undefined
+-   `isLoading`: Boolean indicating if the request is in progress
+-   `error`: Error message if the request failed
+-   `refetch`: Function to manually trigger a refetch
+-   `lastUpdated`: Timestamp of the last successful update
+
+### useTokenBalances
+
+Fetches token balances for a given address across supported networks.
+
+```typescript
+import { useTokenBalances } from "~~/app/token-api/_hooks/useTokenBalances";
+
+// Basic usage
+const { data: balances, isLoading, error } = useTokenBalances("0x1234...abcd");
+
+// With filter parameters
+const { data: filteredBalances } = useTokenBalances(address, {
+    network_id: "mainnet",
+    page: 1,
+    page_size: 20,
+    min_amount: "1000000",
+});
+```
+
+**Parameters:**
+
+-   `address`: Wallet address to fetch balances for
+-   `params`: Optional filter parameters
+    -   `network_id`: Network identifier
+    -   `page`: Page number for pagination
+    -   `page_size`: Number of results per page
+    -   `min_amount`: Minimum token amount
+    -   `contract_address`: Filter by specific token contract
+-   `options`: Hook options (passed to useTokenApi)
+
+**Returns:**
+
+-   Same as useTokenApi, with `data` being an array of TokenBalance objects
+
+### useTokenHolders
+
+Fetches holder information for a specific token contract.
+
+```typescript
+import { useTokenHolders } from "~~/app/token-api/_hooks/useTokenHolders";
+
+// Basic usage
+const { data: holders } = useTokenHolders(
+    "0xc944E90C64B2c07662A292be6244BDf05Cda44a7"
+);
+
+// With parameters
+const { data: holders } = useTokenHolders(contractAddress, {
+    network_id: "mainnet",
+    page: 1,
+    page_size: 50,
+    order_by: "desc",
+});
+```
+
+**Parameters:**
+
+-   `contractAddress`: Token contract address
+-   `params`: Optional filter parameters
+    -   `network_id`: Network identifier
+    -   `page`: Page number for pagination
+    -   `page_size`: Number of results per page
+    -   `order_by`: Sort order for results ("asc" or "desc")
+-   `options`: Hook options
+
+**Returns:**
+
+-   Same as useTokenApi, with `data` being an array of TokenHolder objects
+
+### useTokenMetadata
+
+Fetches detailed metadata for a token contract.
+
+```typescript
+import { useTokenMetadata } from "~~/app/token-api/_hooks/useTokenMetadata";
+
+// Basic usage
+const { data: tokenInfo } = useTokenMetadata(
+    "0x4200000000000000000000000000000000000042"
+);
+
+// With parameters
+const { data: tokenInfo } = useTokenMetadata(contractAddress, {
+    network_id: "optimism",
+});
+```
+
+**Parameters:**
+
+-   `contractAddress`: Token contract address
+-   `params`: Optional parameters
+    -   `network_id`: Network identifier
+-   `options`: Hook options
+
+**Returns:**
+
+-   Same as useTokenApi, with `data` containing token metadata
+
+### useTokenTransfers
+
+Fetches token transfer events for an address or contract.
+
+```typescript
+import { useTokenTransfers } from "~~/app/token-api/_hooks/useTokenTransfers";
+
+// Basic usage
+const { data: transfers } = useTokenTransfers("0x1234...abcd");
+
+// With parameters
+const { data: transfers } = useTokenTransfers(address, {
+    network_id: "base",
+    page_size: 100,
+    days: 30,
+    contract_address: "0x4200000000000000000000000000000000000042",
+});
+```
+
+**Parameters:**
+
+-   `address`: Wallet address or contract address
+-   `params`: Optional filter parameters
+    -   `network_id`: Network identifier
+    -   `page_size`: Number of results per page
+    -   `page`: Page number for pagination
+    -   `days`: Number of days to look back
+    -   `contract_address`: Filter by specific token contract
+-   `options`: Hook options
+
+**Returns:**
+
+-   Same as useTokenApi, with `data` being an array of TokenTransfer objects
+
+### useHistoricalBalances
+
+Fetches historical balance data for an address.
+
+```typescript
+import { useHistoricalBalances } from "~~/app/token-api/_hooks/useHistoricalBalances";
+
+// Basic usage
+const { data: historicalData } = useHistoricalBalances("0x1234...abcd");
+
+// With parameters
+const { data: historicalData } = useHistoricalBalances(address, {
+    network_id: "mainnet",
+    contract_address: "0xc944E90C64B2c07662A292be6244BDf05Cda44a7",
+    days: 90,
+    interval: "day",
+});
+```
+
+**Parameters:**
+
+-   `address`: Wallet address
+-   `params`: Optional filter parameters
+    -   `network_id`: Network identifier
+    -   `contract_address`: Token contract address
+    -   `days`: Number of days to look back
+    -   `interval`: Time interval for data points ("day", "week", "month")
+-   `options`: Hook options
+
+**Returns:**
+
+-   Same as useTokenApi, with `data` being an array of HistoricalBalance objects
+
+### useTokenOHLCByPool
+
+Fetches OHLC (Open, High, Low, Close) price data for a DEX liquidity pool.
+
+```typescript
+import { useTokenOHLCByPool } from "~~/app/token-api/_hooks/useTokenOHLCByPool";
+
+// Basic usage
+const { data: ohlcData } = useTokenOHLCByPool(
+    "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640"
+);
+
+// With parameters
+const { data: ohlcData } = useTokenOHLCByPool(poolAddress, {
+    network_id: "mainnet",
+    days: 30,
+    interval: "hour",
+});
+```
+
+**Parameters:**
+
+-   `poolAddress`: DEX pool contract address
+-   `params`: Optional filter parameters
+    -   `network_id`: Network identifier
+    -   `days`: Number of days to look back
+    -   `interval`: Time interval for data points ("hour", "day", "week")
+-   `options`: Hook options
+
+**Returns:**
+
+-   Same as useTokenApi, with `data` being an array of OHLC data points
+
+### useTokenOHLCByContract
+
+Fetches OHLC price data for a token contract.
+
+```typescript
+import { useTokenOHLCByContract } from "~~/app/token-api/_hooks/useTokenOHLCByContract";
+
+// Basic usage
+const { data: ohlcData } = useTokenOHLCByContract(
+    "0x4200000000000000000000000000000000000042"
+);
+
+// With parameters
+const { data: ohlcData } = useTokenOHLCByContract(contractAddress, {
+    network_id: "optimism",
+    days: 180,
+    interval: "day",
+});
+```
+
+**Parameters:**
+
+-   `contractAddress`: Token contract address
+-   `params`: Optional filter parameters
+    -   `network_id`: Network identifier
+    -   `days`: Number of days to look back
+    -   `interval`: Time interval for data points ("hour", "day", "week")
+-   `options`: Hook options
+
+**Returns:**
+
+-   Same as useTokenApi, with `data` being an array of OHLC data points
+
+### useTokenSwaps
+
+Fetches DEX swap events across supported networks.
+
+```typescript
+import { useTokenSwaps } from "~~/app/token-api/_hooks/useTokenSwaps";
+
+// Basic usage
+const { data: swaps } = useTokenSwaps();
+
+// With parameters
+const { data: swaps } = useTokenSwaps({
+    network_id: "mainnet",
+    pool_address: "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
+    page: 1,
+    page_size: 50,
+});
+```
+
+**Parameters:**
+
+-   `params`: Optional filter parameters
+    -   `network_id`: Network identifier
+    -   `pool_address`: Filter by specific pool address
+    -   `token_address`: Filter by specific token address
+    -   `min_value_usd`: Minimum USD value of swap
+    -   `page`: Page number for pagination
+    -   `page_size`: Number of results per page
+-   `options`: Hook options
+
+**Returns:**
+
+-   Same as useTokenApi, with `data` being an array of Swap event objects
+
+### useTokenPools
+
+Fetches DEX liquidity pool information.
+
+```typescript
+import { useTokenPools } from "~~/app/token-api/_hooks/useTokenPools";
+
+// Basic usage
+const { data: pools } = useTokenPools();
+
+// With parameters
+const { data: pools } = useTokenPools({
+    network_id: "mainnet",
+    token_address: "0xc944E90C64B2c07662A292be6244BDf05Cda44a7",
+    page: 1,
+    page_size: 20,
+});
+```
+
+**Parameters:**
+
+-   `params`: Optional filter parameters
+    -   `network_id`: Network identifier
+    -   `token_address`: Filter by specific token address
+    -   `min_tvl_usd`: Minimum Total Value Locked in USD
+    -   `page`: Page number for pagination
+    -   `page_size`: Number of results per page
+-   `options`: Hook options
+
+**Returns:**
+
+-   Same as useTokenApi, with `data` being an array of Pool objects
+
 ## 🔍 Token API Component Documentation
 
 ### GetHolders Component
@@ -1500,337 +1834,3 @@ To know more about its features, check out our [website](https://scaffoldeth.io)
 We welcome contributions to Scaffold-ETH 2!
 
 Please see [CONTRIBUTING.MD](https://github.com/scaffold-eth/scaffold-eth-2/blob/main/CONTRIBUTING.md) for more information and guidelines for contributing to Scaffold-ETH 2.
-
-## 🪝 Token API Hooks Documentation
-
-The Token API Explorer provides a set of React hooks to interact with The Graph Token API. These hooks handle data fetching, caching, error handling, and state management, making it easier to integrate token data into your application.
-
-### useTokenApi
-
-The base hook that all other hooks extend. It provides the core functionality for interacting with the Token API.
-
-```typescript
-import { useTokenApi } from "~~/app/token-api/_hooks/useTokenApi";
-
-// Usage example
-const { data, isLoading, error, refetch, lastUpdated } =
-    useTokenApi<YourDataType>(
-        "endpoint/path",
-        { param1: "value1", param2: "value2" },
-        { skip: false, refetchInterval: 30000 }
-    );
-```
-
-**Parameters:**
-
--   `endpoint`: API endpoint path without leading slash
--   `params`: Query parameters object
--   `options`:
-    -   `skip`: Whether to skip the API call (default: false)
-    -   `refetchInterval`: Interval in milliseconds to refetch data
-
-**Returns:**
-
--   `data`: The fetched data or undefined
--   `isLoading`: Boolean indicating if the request is in progress
--   `error`: Error message if the request failed
--   `refetch`: Function to manually trigger a refetch
--   `lastUpdated`: Timestamp of the last successful update
-
-### useTokenBalances
-
-Fetches token balances for a given address across supported networks.
-
-```typescript
-import { useTokenBalances } from "~~/app/token-api/_hooks/useTokenBalances";
-
-// Basic usage
-const { data: balances, isLoading, error } = useTokenBalances("0x1234...abcd");
-
-// With filter parameters
-const { data: filteredBalances } = useTokenBalances(address, {
-    network_id: "mainnet",
-    page: 1,
-    page_size: 20,
-    min_amount: "1000000",
-});
-```
-
-**Parameters:**
-
--   `address`: Wallet address to fetch balances for
--   `params`: Optional filter parameters
-    -   `network_id`: Network identifier
-    -   `page`: Page number for pagination
-    -   `page_size`: Number of results per page
-    -   `min_amount`: Minimum token amount
-    -   `contract_address`: Filter by specific token contract
--   `options`: Hook options (passed to useTokenApi)
-
-**Returns:**
-
--   Same as useTokenApi, with `data` being an array of TokenBalance objects
-
-### useTokenHolders
-
-Fetches holder information for a specific token contract.
-
-```typescript
-import { useTokenHolders } from "~~/app/token-api/_hooks/useTokenHolders";
-
-// Basic usage
-const { data: holders } = useTokenHolders(
-    "0xc944E90C64B2c07662A292be6244BDf05Cda44a7"
-);
-
-// With parameters
-const { data: holders } = useTokenHolders(contractAddress, {
-    network_id: "mainnet",
-    page: 1,
-    page_size: 50,
-    order_by: "desc",
-});
-```
-
-**Parameters:**
-
--   `contractAddress`: Token contract address
--   `params`: Optional filter parameters
-    -   `network_id`: Network identifier
-    -   `page`: Page number for pagination
-    -   `page_size`: Number of results per page
-    -   `order_by`: Sort order for results ("asc" or "desc")
--   `options`: Hook options
-
-**Returns:**
-
--   Same as useTokenApi, with `data` being an array of TokenHolder objects
-
-### useTokenMetadata
-
-Fetches detailed metadata for a token contract.
-
-```typescript
-import { useTokenMetadata } from "~~/app/token-api/_hooks/useTokenMetadata";
-
-// Basic usage
-const { data: tokenInfo } = useTokenMetadata(
-    "0x4200000000000000000000000000000000000042"
-);
-
-// With parameters
-const { data: tokenInfo } = useTokenMetadata(contractAddress, {
-    network_id: "optimism",
-});
-```
-
-**Parameters:**
-
--   `contractAddress`: Token contract address
--   `params`: Optional parameters
-    -   `network_id`: Network identifier
--   `options`: Hook options
-
-**Returns:**
-
--   Same as useTokenApi, with `data` containing token metadata
-
-### useTokenTransfers
-
-Fetches token transfer events for an address or contract.
-
-```typescript
-import { useTokenTransfers } from "~~/app/token-api/_hooks/useTokenTransfers";
-
-// Basic usage
-const { data: transfers } = useTokenTransfers("0x1234...abcd");
-
-// With parameters
-const { data: transfers } = useTokenTransfers(address, {
-    network_id: "base",
-    page_size: 100,
-    days: 30,
-    contract_address: "0x4200000000000000000000000000000000000042",
-});
-```
-
-**Parameters:**
-
--   `address`: Wallet address or contract address
--   `params`: Optional filter parameters
-    -   `network_id`: Network identifier
-    -   `page_size`: Number of results per page
-    -   `page`: Page number for pagination
-    -   `days`: Number of days to look back
-    -   `contract_address`: Filter by specific token contract
--   `options`: Hook options
-
-**Returns:**
-
--   Same as useTokenApi, with `data` being an array of TokenTransfer objects
-
-### useHistoricalBalances
-
-Fetches historical balance data for an address.
-
-```typescript
-import { useHistoricalBalances } from "~~/app/token-api/_hooks/useHistoricalBalances";
-
-// Basic usage
-const { data: historicalData } = useHistoricalBalances("0x1234...abcd");
-
-// With parameters
-const { data: historicalData } = useHistoricalBalances(address, {
-    network_id: "mainnet",
-    contract_address: "0xc944E90C64B2c07662A292be6244BDf05Cda44a7",
-    days: 90,
-    interval: "day",
-});
-```
-
-**Parameters:**
-
--   `address`: Wallet address
--   `params`: Optional filter parameters
-    -   `network_id`: Network identifier
-    -   `contract_address`: Token contract address
-    -   `days`: Number of days to look back
-    -   `interval`: Time interval for data points ("day", "week", "month")
--   `options`: Hook options
-
-**Returns:**
-
--   Same as useTokenApi, with `data` being an array of HistoricalBalance objects
-
-### useTokenOHLCByPool
-
-Fetches OHLC (Open, High, Low, Close) price data for a DEX liquidity pool.
-
-```typescript
-import { useTokenOHLCByPool } from "~~/app/token-api/_hooks/useTokenOHLCByPool";
-
-// Basic usage
-const { data: ohlcData } = useTokenOHLCByPool(
-    "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640"
-);
-
-// With parameters
-const { data: ohlcData } = useTokenOHLCByPool(poolAddress, {
-    network_id: "mainnet",
-    days: 30,
-    interval: "hour",
-});
-```
-
-**Parameters:**
-
--   `poolAddress`: DEX pool contract address
--   `params`: Optional filter parameters
-    -   `network_id`: Network identifier
-    -   `days`: Number of days to look back
-    -   `interval`: Time interval for data points ("hour", "day", "week")
--   `options`: Hook options
-
-**Returns:**
-
--   Same as useTokenApi, with `data` being an array of OHLC data points
-
-### useTokenOHLCByContract
-
-Fetches OHLC price data for a token contract.
-
-```typescript
-import { useTokenOHLCByContract } from "~~/app/token-api/_hooks/useTokenOHLCByContract";
-
-// Basic usage
-const { data: ohlcData } = useTokenOHLCByContract(
-    "0x4200000000000000000000000000000000000042"
-);
-
-// With parameters
-const { data: ohlcData } = useTokenOHLCByContract(contractAddress, {
-    network_id: "optimism",
-    days: 180,
-    interval: "day",
-});
-```
-
-**Parameters:**
-
--   `contractAddress`: Token contract address
--   `params`: Optional filter parameters
-    -   `network_id`: Network identifier
-    -   `days`: Number of days to look back
-    -   `interval`: Time interval for data points ("hour", "day", "week")
--   `options`: Hook options
-
-**Returns:**
-
--   Same as useTokenApi, with `data` being an array of OHLC data points
-
-### useTokenSwaps
-
-Fetches DEX swap events across supported networks.
-
-```typescript
-import { useTokenSwaps } from "~~/app/token-api/_hooks/useTokenSwaps";
-
-// Basic usage
-const { data: swaps } = useTokenSwaps();
-
-// With parameters
-const { data: swaps } = useTokenSwaps({
-    network_id: "mainnet",
-    pool_address: "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
-    page: 1,
-    page_size: 50,
-});
-```
-
-**Parameters:**
-
--   `params`: Optional filter parameters
-    -   `network_id`: Network identifier
-    -   `pool_address`: Filter by specific pool address
-    -   `token_address`: Filter by specific token address
-    -   `min_value_usd`: Minimum USD value of swap
-    -   `page`: Page number for pagination
-    -   `page_size`: Number of results per page
--   `options`: Hook options
-
-**Returns:**
-
--   Same as useTokenApi, with `data` being an array of Swap event objects
-
-### useTokenPools
-
-Fetches DEX liquidity pool information.
-
-```typescript
-import { useTokenPools } from "~~/app/token-api/_hooks/useTokenPools";
-
-// Basic usage
-const { data: pools } = useTokenPools();
-
-// With parameters
-const { data: pools } = useTokenPools({
-    network_id: "mainnet",
-    token_address: "0xc944E90C64B2c07662A292be6244BDf05Cda44a7",
-    page: 1,
-    page_size: 20,
-});
-```
-
-**Parameters:**
-
--   `params`: Optional filter parameters
-    -   `network_id`: Network identifier
-    -   `token_address`: Filter by specific token address
-    -   `min_tvl_usd`: Minimum Total Value Locked in USD
-    -   `page`: Page number for pagination
-    -   `page_size`: Number of results per page
--   `options`: Hook options
-
-**Returns:**
-
--   Same as useTokenApi, with `data` being an array of Pool objects
