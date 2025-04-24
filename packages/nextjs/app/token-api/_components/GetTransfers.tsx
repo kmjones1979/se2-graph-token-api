@@ -83,6 +83,56 @@ export const GetTransfers = ({ isOpen = true }: { isOpen?: boolean }) => {
     );
   };
 
+  // Format token amount based on decimals
+  const formatTokenAmount = (amount: string, decimals: number): string => {
+    try {
+      // If the amount is already a formatted number (like in value field)
+      if (!isNaN(Number(amount)) && Number(amount) < 10000000 && amount.includes(".")) {
+        return Number(amount).toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 6,
+        });
+      }
+
+      // Otherwise, format based on decimals
+      const value = BigInt(amount) / BigInt(10 ** decimals);
+      const valueNumber = Number(value);
+
+      // If the value is less than 0.000001, use scientific notation
+      if (valueNumber > 0 && valueNumber < 0.000001) {
+        return valueNumber.toExponential(6);
+      }
+
+      // Format the number with appropriate decimal places
+      return valueNumber.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: Math.min(decimals, 6),
+      });
+    } catch (e) {
+      console.error("Error formatting token amount:", e);
+      return amount;
+    }
+  };
+
+  // Get decimals helper function
+  const getDecimals = (transfer: CombinedTransfer): number => {
+    return (transfer as TokenTransferItem).decimals || 18; // Default to 18 for most tokens
+  };
+
+  // Get formatted amount
+  const getFormattedAmount = (transfer: CombinedTransfer): string => {
+    const rawAmount = getAmount(transfer);
+    const decimals = getDecimals(transfer);
+
+    // If there's already a value field that's formatted, use that
+    if ((transfer as TokenTransferItem).value !== undefined) {
+      return String((transfer as TokenTransferItem).value);
+    }
+
+    // Otherwise format the raw amount
+    return formatTokenAmount(rawAmount, decimals);
+  };
+
   // Extract timestamp helper function
   const getTimestamp = (transfer: CombinedTransfer): number => {
     if ((transfer as TokenTransferItem).datetime) {
@@ -454,8 +504,11 @@ export const GetTransfers = ({ isOpen = true }: { isOpen?: boolean }) => {
                             </div>
                           </div>
                           <div className="text-xl">
-                            {getAmount(transfer)} {getSymbol(transfer)}
+                            {getFormattedAmount(transfer)} {getSymbol(transfer)}
                           </div>
+                          {getAmount(transfer) !== getFormattedAmount(transfer) && (
+                            <div className="text-xs opacity-60">Raw amount: {getAmount(transfer)}</div>
+                          )}
                           {transfer.value_usd && (
                             <div className="text-sm text-success">${transfer.value_usd.toFixed(2)}</div>
                           )}
