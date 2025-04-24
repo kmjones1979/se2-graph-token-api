@@ -1,8 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { HistoricalBalance, TokenBalanceHistory, useHistoricalBalances } from "../_hooks/useHistoricalBalances";
-import { NetworkId } from "../_hooks/useTokenApi";
+import {
+  HistoricalBalance,
+  TokenBalanceHistory,
+  useHistoricalBalances,
+} from "~~/app/token-api/_hooks/useHistoricalBalances";
+import { NetworkId } from "~~/app/token-api/_hooks/useTokenApi";
 import { Address, AddressInput } from "~~/components/scaffold-eth";
 
 // Define supported EVM networks

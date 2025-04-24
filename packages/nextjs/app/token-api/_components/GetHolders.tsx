@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { NetworkId } from "../_hooks/useTokenApi";
-import { TokenHolder, TokenHoldersResponse, useTokenHolders } from "../_hooks/useTokenHolders";
+import { NetworkId } from "~~/app/token-api/_hooks/useTokenApi";
+import { TokenHolder, TokenHoldersResponse, useTokenHolders } from "~~/app/token-api/_hooks/useTokenHolders";
 import { Address, AddressInput } from "~~/components/scaffold-eth";
 
 // Define supported EVM networks

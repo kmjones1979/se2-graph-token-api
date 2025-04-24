@@ -2,6 +2,59 @@
 
 A modern, responsive web application built with Next.js that interacts with [The Graph Token API](https://thegraph.com/docs/en/token-api/evm/get-balances-evm-by-address/). This explorer allows you to fetch and display token information across multiple EVM networks.
 
+## 📑 Table of Contents
+
+-   [Features](#-features)
+-   [Setup](#️-setup)
+    -   [Prerequisites](#prerequisites)
+    -   [Installation](#installation)
+    -   [Running the Application](#running-the-application)
+-   [API Components](#-api-components)
+    -   [Token Holders Component](#token-holders-component)
+    -   [Token Transfers Component](#token-transfers-component)
+    -   [Token Metadata Component](#token-metadata-component)
+    -   [Token Balances Component](#token-balances-component)
+    -   [Historical Balances Component](#historical-balances-component)
+    -   [DEX Pool OHLC Component](#dex-pool-ohlc-component)
+    -   [Token OHLC Component](#token-ohlc-component)
+    -   [DEX Swaps Component](#dex-swaps-component)
+-   [Example Addresses](#-example-addresses-for-testing)
+-   [API Authentication](#-api-authentication)
+-   [Supported Networks](#-supported-networks)
+-   [API Endpoints](#-api-endpoints)
+-   [Key Data Structures](#-key-data-structures)
+    -   [OHLC Price Data](#ohlc-price-data)
+    -   [Historical Balance Data](#historical-balance-data)
+    -   [Token Metadata](#token-metadata)
+    -   [Token Balance](#token-balance)
+    -   [Token Holder](#token-holder)
+    -   [Token Transfer](#token-transfer)
+    -   [Swap Event](#swap-event)
+-   [Component Features](#-component-features)
+-   [Error Handling Examples](#-error-handling-examples)
+-   [Hook Documentation](#-hook-documentation)
+    -   [useScaffoldReadContract](#usescaffoldreadcontract)
+    -   [useScaffoldWriteContract](#usescaffoldwritecontract)
+    -   [useScaffoldWatchContractEvent](#usescaffoldwatchcontractevent)
+    -   [useScaffoldEventHistory](#usescaffoldeventhistory)
+    -   [useDeployedContractInfo](#usedeployedcontractinfo)
+    -   [useScaffoldContract](#usescaffoldcontract)
+    -   [useTransactor](#usetransactor)
+-   [Component Documentation](#-component-documentation)
+    -   [Address Component](#address-component)
+    -   [AddressInput Component](#addressinput-component)
+    -   [Balance Component](#balance-component)
+    -   [EtherInput Component](#etherinput-component)
+-   [Tutorials](#-tutorial-setting-up-and-using-hooks)
+    -   [Setting Up and Using Hooks](#-tutorial-setting-up-and-using-hooks)
+    -   [Building Applications with Token API Components](#-tutorial-building-applications-with-token-api-components)
+-   [Scaffold-ETH 2](#-scaffold-eth-2)
+    -   [Setup The Graph Integration](#-setup-the-graph-integration)
+    -   [Shipping to Subgraph Studio](#shipping-to-subgraph-studio-)
+    -   [Available Commands](#a-list-of-all-available-root-commands)
+    -   [Documentation](#documentation)
+    -   [Contributing](#contributing-to-scaffold-eth-2)
+
 ## 🌟 Features
 
 -   📊 Token Holders: View detailed holder information with pagination
@@ -68,7 +121,7 @@ Fetches and displays token holder information for any ERC20 token.
 
 ```typescript
 // Example usage in your component
-import { GetHolders } from "./_components/GetHolders";
+import { GetHolders } from "~~/app/token-api/_components/GetHolders";
 
 export default function YourComponent() {
     return (
@@ -85,7 +138,7 @@ Tracks token transfer events with detailed information.
 
 ```typescript
 // Example usage
-import { GetTransfers } from "./_components/GetTransfers";
+import { GetTransfers } from "~~/app/token-api/_components/GetTransfers";
 
 export default function YourComponent() {
     return (
@@ -102,7 +155,7 @@ Fetches comprehensive token information.
 
 ```typescript
 // Example usage
-import { GetMetadata } from "./_components/GetMetadata";
+import { GetMetadata } from "~~/app/token-api/_components/GetMetadata";
 
 export default function YourComponent() {
     return (
@@ -119,7 +172,7 @@ Retrieves token balances for any Ethereum address across supported networks.
 
 ```typescript
 // Example usage
-import { GetBalances } from "./_components/GetBalances";
+import { GetBalances } from "~~/app/token-api/_components/GetBalances";
 
 export default function YourComponent() {
     return (
@@ -136,7 +189,7 @@ Track token balance changes over time for any wallet address.
 
 ```typescript
 // Example usage
-import { GetHistorical } from "./_components/GetHistorical";
+import { GetHistorical } from "~~/app/token-api/_components/GetHistorical";
 
 export default function YourComponent() {
     return (
@@ -153,7 +206,7 @@ View price history for liquidity pools with OHLCV data.
 
 ```typescript
 // Example usage
-import { GetOHLCByPool } from "./_components/GetOHLCByPool";
+import { GetOHLCByPool } from "~~/app/token-api/_components/GetOHLCByPool";
 
 export default function YourComponent() {
     return (
@@ -170,7 +223,7 @@ Track price movements for individual token contracts.
 
 ```typescript
 // Example usage
-import { GetOHLCByContract } from "./_components/GetOHLCByContract";
+import { GetOHLCByContract } from "~~/app/token-api/_components/GetOHLCByContract";
 
 export default function YourComponent() {
     return (
@@ -187,7 +240,7 @@ Monitor swap events across DEXs on multiple networks.
 
 ```typescript
 // Example usage
-import { GetSwaps } from "./_components/GetSwaps";
+import { GetSwaps } from "~~/app/token-api/_components/GetSwaps";
 
 export default function YourComponent() {
     return (
@@ -304,6 +357,87 @@ interface HistoricalBalance {
 }
 ```
 
+### Token Metadata
+
+```typescript
+interface TokenMetadata {
+    contract_address: string;
+    name: string;
+    symbol: string;
+    decimals: number;
+    total_supply: string;
+    logo_url?: string;
+    market_data?: {
+        price_usd: number;
+        price_change_percentage_24h: number;
+        market_cap: number;
+        total_volume_24h: number;
+    };
+}
+```
+
+### Token Balance
+
+```typescript
+interface TokenBalance {
+    contract_address: string;
+    amount: string;
+    symbol: string;
+    decimals: number;
+    name?: string;
+    amount_usd?: number;
+    network_id: string;
+}
+```
+
+### Token Holder
+
+```typescript
+interface TokenHolder {
+    address: string;
+    balance: string;
+    last_updated_block: number;
+    balance_usd?: number;
+    token_share?: number;
+}
+```
+
+### Token Transfer
+
+```typescript
+interface TokenTransfer {
+    tx_hash: string;
+    from_address: string;
+    to_address: string;
+    value: string;
+    value_display?: string;
+    block_timestamp: number;
+    block_number: number;
+    type: string;
+    network_id?: string;
+}
+```
+
+### Swap Event
+
+```typescript
+interface Swap {
+    tx_hash: string;
+    pool_address: string;
+    amount0_in: string;
+    amount1_in: string;
+    amount0_out: string;
+    amount1_out: string;
+    token0_address: string;
+    token0_symbol: string;
+    token1_address: string;
+    token1_symbol: string;
+    timestamp: number;
+    network_id: string;
+    value_usd?: number;
+}
+```
+
 ## 📱 Component Features
 
 All components share these developer-friendly features:
@@ -361,6 +495,434 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## 📄 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Getting Started
+
+### 1. Get Your API Key
+
+1. Visit [The Graph Market](https://thegraph.market/)
+2. Navigate to the "Token API" tab
+3. Click "Get API Key"
+4. Follow the authentication process
+5. Copy your API Token
+
+### 2. Set Up Environment Variables
+
+Create a `.env.local` file in the root directory and add your API key:
+
+```bash
+NEXT_PUBLIC_GRAPH_TOKEN=your_api_key_here
+```
+
+### 3. Install Dependencies
+
+```bash
+yarn install
+```
+
+### 4. Start the Development Server
+
+```bash
+yarn start
+```
+
+Open [http://localhost:3000](http://localhost:3000) to view the application.
+
+## Features
+
+-   View token metadata across multiple EVM networks
+-   Check token balances for any address
+-   Track token transfers
+-   List token holders
+-   Support for multiple networks:
+    -   Ethereum Mainnet
+    -   Base
+    -   Arbitrum
+    -   BSC
+    -   Optimism
+
+## Built With
+
+-   Next.js
+-   Scaffold-ETH 2
+-   Tailwind CSS
+-   DaisyUI
+
+## 🧰 Hook Documentation for Scaffold-ETH
+
+Please reference the [Scaffold-ETH docs](https://docs.scaffoldeth.io/)
+
+## 🧩 Component Documentation for Scaffold-ETH
+
+Please reference the [Scaffold-ETH docs](https://docs.scaffoldeth.io/)
+
+## 🔍 Token API Component Documentation
+
+### GetHolders Component
+
+Displays token holder information with pagination and filtering.
+
+```typescript
+import { GetHolders } from "~~/app/token-api/_components/GetHolders";
+
+// Basic usage
+<GetHolders />
+
+// With custom contract and network
+<GetHolders
+  initialContractAddress="0xc944E90C64B2c07662A292be6244BDf05Cda44a7"
+  initialNetwork="mainnet"
+/>
+```
+
+### GetBalances Component
+
+Displays token balances for any address across supported networks.
+
+```typescript
+import { GetBalances } from "~~/app/token-api/_components/GetBalances";
+
+// Basic usage
+<GetBalances />
+
+// With custom address and network
+<GetBalances
+  initialAddress="0x1234..."
+  initialNetwork="arbitrum-one"
+/>
+```
+
+### GetTransfers Component
+
+Displays token transfer events with filtering options.
+
+```typescript
+import { GetTransfers } from "~~/app/token-api/_components/GetTransfers";
+
+// Basic usage
+<GetTransfers />
+
+// With custom address/contract and network
+<GetTransfers
+  initialAddress="0x1234..."
+  initialNetwork="base"
+/>
+```
+
+### GetOHLCByContract Component
+
+Displays price history charts for token contracts.
+
+```typescript
+import { GetOHLCByContract } from "~~/app/token-api/_components/GetOHLCByContract";
+
+// Basic usage
+<GetOHLCByContract />
+
+// With custom contract and network
+<GetOHLCByContract
+  initialContractAddress="0x4200000000000000000000000000000000000042"
+  initialNetwork="optimism"
+/>
+```
+
+## 🚀 Tutorial: Setting Up and Using Hooks
+
+This tutorial shows how to build a simple token dashboard using Scaffold-ETH hooks.
+
+### Step 1: Create a Basic Component Structure
+
+**What this step accomplishes:** Sets up the foundation for your token dashboard by creating the basic component structure and importing necessary hooks.
+
+```typescript
+// pages/token-dashboard.tsx
+import { useAccount } from "wagmi";
+import { useState, useEffect } from "react";
+import { Address, Balance } from "~~/components/scaffold-eth";
+import {
+    useScaffoldReadContract,
+    useScaffoldWriteContract,
+    useScaffoldEventHistory,
+} from "~~/hooks/scaffold-eth";
+
+export default function TokenDashboard() {
+    const { address } = useAccount();
+    const [recipient, setRecipient] = useState("");
+    const [amount, setAmount] = useState("");
+
+    return (
+        <div className="flex flex-col gap-4 p-4">
+            <h1 className="text-2xl font-bold">Token Dashboard</h1>
+            {/* We'll add more functionality in the next steps */}
+        </div>
+    );
+}
+```
+
+### Step 2: Read Token Information Using Hooks
+
+**What this step accomplishes:** Implements reading data from your token contract using the `useScaffoldReadContract` hook to display basic token information like name, symbol, decimals, and user's balance.
+
+```typescript
+// Inside TokenDashboard component, add these hooks
+const { data: tokenName } = useScaffoldReadContract({
+    contractName: "YourToken",
+    functionName: "name",
+});
+
+const { data: tokenSymbol } = useScaffoldReadContract({
+    contractName: "YourToken",
+    functionName: "symbol",
+});
+
+const { data: tokenDecimals } = useScaffoldReadContract({
+    contractName: "YourToken",
+    functionName: "decimals",
+});
+
+const { data: userBalance, refetch: refetchBalance } = useScaffoldReadContract({
+    contractName: "YourToken",
+    functionName: "balanceOf",
+    args: [address],
+    watch: true, // Automatically update when new blocks are mined
+});
+```
+
+**Add the UI to display the token information:**
+
+```typescript
+// Add this to your return statement
+<div className="card bg-base-100 shadow-xl p-4">
+    <h2 className="text-xl font-bold">
+        {tokenName} ({tokenSymbol})
+    </h2>
+    <p>Decimals: {tokenDecimals?.toString()}</p>
+    <p>Your Balance: {userBalance?.toString()}</p>
+</div>
+```
+
+### Step 3: Add Token Transfer Functionality
+
+**What this step accomplishes:** Implements the ability to transfer tokens to other addresses using the `useScaffoldWriteContract` hook, which handles transaction submission and state management.
+
+```typescript
+// Inside TokenDashboard component, add this hook
+const { writeContractAsync, isLoading: isTransferring } =
+    useScaffoldWriteContract({
+        contractName: "YourToken",
+    });
+
+// Add the transfer function
+const handleTransfer = async () => {
+    if (!recipient || !amount) return;
+
+    try {
+        const parsedAmount = BigInt(amount);
+        await writeContractAsync({
+            functionName: "transfer",
+            args: [recipient, parsedAmount],
+        });
+
+        // Reset form and refresh balance after successful transfer
+        setRecipient("");
+        setAmount("");
+        refetchBalance();
+    } catch (err) {
+        console.error("Transfer failed:", err);
+    }
+};
+```
+
+**Add the transfer form UI:**
+
+```typescript
+// Add this to your return statement
+<div className="card bg-base-100 shadow-xl p-4 mt-4">
+    <h2 className="text-xl font-bold">Transfer Tokens</h2>
+    <div className="form-control">
+        <label className="label">Recipient</label>
+        <input
+            type="text"
+            className="input input-bordered"
+            value={recipient}
+            onChange={(e) => setRecipient(e.target.value)}
+            placeholder="0x..."
+        />
+    </div>
+    <div className="form-control mt-2">
+        <label className="label">Amount</label>
+        <input
+            type="text"
+            className="input input-bordered"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="100"
+        />
+    </div>
+    <button
+        className="btn btn-primary mt-4"
+        onClick={handleTransfer}
+        disabled={isTransferring || !recipient || !amount}
+    >
+        {isTransferring ? "Sending..." : "Transfer"}
+    </button>
+</div>
+```
+
+### Step 4: Display Transaction History
+
+**What this step accomplishes:** Implements a way to view the user's transfer history using the `useScaffoldEventHistory` hook, which fetches historical contract events with pagination support.
+
+```typescript
+// Inside TokenDashboard component, add this hook
+const {
+    data: transferEvents,
+    isLoading: isLoadingEvents,
+    fetchNextPage,
+    hasNextPage,
+} = useScaffoldEventHistory({
+    contractName: "YourToken",
+    eventName: "Transfer",
+    filters: { from: address }, // Only show transfers sent by the user
+    blockData: true, // Include block information
+    transactionData: true, // Include transaction details
+});
+```
+
+**Add the transaction history UI:**
+
+```typescript
+// Add this to your return statement
+<div className="card bg-base-100 shadow-xl p-4 mt-4">
+    <h2 className="text-xl font-bold">Your Recent Transfers</h2>
+    {isLoadingEvents ? (
+        <p>Loading transfer history...</p>
+    ) : (
+        <div className="overflow-x-auto">
+            <table className="table">
+                <thead>
+                    <tr>
+                        <th>To</th>
+                        <th>Amount</th>
+                        <th>Block</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {transferEvents?.flatMap((page) =>
+                        page.map((event, index) => (
+                            <tr key={`${event.transaction.hash}-${index}`}>
+                                <td>
+                                    <Address address={event.args.to} />
+                                </td>
+                                <td>{event.args.value.toString()}</td>
+                                <td>{event.block.number.toString()}</td>
+                            </tr>
+                        ))
+                    )}
+                </tbody>
+            </table>
+            {hasNextPage && (
+                <button
+                    className="btn btn-sm mt-2"
+                    onClick={() => fetchNextPage()}
+                >
+                    Load More
+                </button>
+            )}
+        </div>
+    )}
+</div>
+```
+
+### Step 5: Adding Error Handling and UX Improvements
+
+**What this step accomplishes:** Enhances the user experience by adding proper loading states, error handling, and visual feedback for transactions.
+
+```typescript
+// Inside TokenDashboard component, add these states
+const [error, setError] = useState("");
+const [txHash, setTxHash] = useState("");
+const [txSuccess, setTxSuccess] = useState(false);
+
+// Update the transfer function with better error handling
+const handleTransfer = async () => {
+    if (!recipient || !amount) return;
+
+    setError("");
+    setTxHash("");
+    setTxSuccess(false);
+
+    try {
+        const parsedAmount = BigInt(amount);
+        const result = await writeContractAsync({
+            functionName: "transfer",
+            args: [recipient, parsedAmount],
+        });
+
+        setTxHash(result);
+        setTxSuccess(true);
+        setRecipient("");
+        setAmount("");
+        refetchBalance();
+    } catch (err) {
+        const errorMessage =
+            err instanceof Error ? err.message : "Transaction failed";
+        setError(errorMessage);
+        console.error("Transfer failed:", err);
+    }
+};
+```
+
+**Add success and error feedback UI:**
+
+```typescript
+// Add this to your transfer form
+{
+    error && (
+        <div className="alert alert-error mt-4">
+            <p>{error}</p>
+        </div>
+    );
+}
+
+{
+    txSuccess && (
+        <div className="alert alert-success mt-4">
+            <p>
+                Transfer successful! Transaction hash:{" "}
+                <a
+                    href={`https://etherscan.io/tx/${txHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline"
+                >
+                    {txHash.substring(0, 10)}...
+                </a>
+            </p>
+        </div>
+    );
+}
+```
+
+### Step 6: Putting It All Together
+
+**What this step accomplishes:** Completes the token dashboard by combining all the previous steps into a fully functional application that displays token information, allows transfers, and shows transaction history.
+
+The final component will have:
+
+-   Token information display (name, symbol, decimals, user balance)
+-   Transfer functionality with form validation
+-   Transaction success/error feedback
+-   Transaction history with pagination
+-   Proper loading states throughout the UI
+
+By following this tutorial, you've learned how to:
+
+1. Set up a basic Next.js component structure
+2. Use Scaffold-ETH hooks to read data from smart contracts
+3. Write to smart contracts and handle transactions
+4. Listen for and display blockchain events
+5. Implement error handling and UX improvements for web3 applications
 
 # 🏗 Scaffold-ETH 2
 
@@ -682,7 +1244,7 @@ Stop the local graph node.
 ### clean-node
 
 ```sh
-yarn clean-node
+yarn subgraph:clean-node
 ```
 
 Remove the data from the local graph node.
@@ -762,55 +1324,3 @@ To know more about its features, check out our [website](https://scaffoldeth.io)
 We welcome contributions to Scaffold-ETH 2!
 
 Please see [CONTRIBUTING.MD](https://github.com/scaffold-eth/scaffold-eth-2/blob/main/CONTRIBUTING.md) for more information and guidelines for contributing to Scaffold-ETH 2.
-
-## Getting Started
-
-### 1. Get Your API Key
-
-1. Visit [The Graph Market](https://thegraph.market/)
-2. Navigate to the "Token API" tab
-3. Click "Get API Key"
-4. Follow the authentication process
-5. Copy your API Token
-
-### 2. Set Up Environment Variables
-
-Create a `.env.local` file in the root directory and add your API key:
-
-```bash
-NEXT_PUBLIC_GRAPH_TOKEN=your_api_key_here
-```
-
-### 3. Install Dependencies
-
-```bash
-yarn install
-```
-
-### 4. Start the Development Server
-
-```bash
-yarn start
-```
-
-Open [http://localhost:3000](http://localhost:3000) to view the application.
-
-## Features
-
--   View token metadata across multiple EVM networks
--   Check token balances for any address
--   Track token transfers
--   List token holders
--   Support for multiple networks:
-    -   Ethereum Mainnet
-    -   Base
-    -   Arbitrum
-    -   BSC
-    -   Optimism
-
-## Built With
-
--   Next.js
--   Scaffold-ETH 2
--   Tailwind CSS
--   DaisyUI

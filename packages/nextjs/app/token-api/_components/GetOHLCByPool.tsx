@@ -1,8 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { NetworkId } from "../_hooks/useTokenApi";
-import { OHLCDataPoint, PoolOHLCParams, PoolOHLCResponse, useTokenOHLCByPool } from "../_hooks/useTokenOHLCByPool";
+import { NetworkId } from "~~/app/token-api/_hooks/useTokenApi";
+import {
+  OHLCDataPoint,
+  PoolOHLCParams,
+  PoolOHLCResponse,
+  useTokenOHLCByPool,
+} from "~~/app/token-api/_hooks/useTokenOHLCByPool";
 import { Address, AddressInput } from "~~/components/scaffold-eth";
 
 // Define supported EVM networks

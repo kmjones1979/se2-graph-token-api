@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { NetworkId } from "../_hooks/useTokenApi";
-import { TokenTransfer, TokenTransferItem, useTokenTransfers } from "../_hooks/useTokenTransfers";
 import { EVMNetwork } from "../_types/common";
+import { NetworkId } from "~~/app/token-api/_hooks/useTokenApi";
+import { TokenTransfer, TokenTransferItem, useTokenTransfers } from "~~/app/token-api/_hooks/useTokenTransfers";
 import { Address, AddressInput } from "~~/components/scaffold-eth";
 
 // Combined type to handle both API response formats
