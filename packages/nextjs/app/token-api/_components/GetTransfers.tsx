@@ -83,6 +83,11 @@ export const GetTransfers = ({ isOpen = true }: { isOpen?: boolean }) => {
     );
   };
 
+  // Extract contract address helper function
+  const getContractAddress = (transfer: CombinedTransfer): string => {
+    return (transfer as TokenTransferItem).contract || (transfer as TokenTransfer).token_address || "";
+  };
+
   // Format token amount based on decimals
   const formatTokenAmount = (amount: string, decimals: number): string => {
     try {
@@ -497,7 +502,7 @@ export const GetTransfers = ({ isOpen = true }: { isOpen?: boolean }) => {
                           <div className="text-lg font-semibold">{getSymbol(transfer) || "Token Transfer"}</div>
                           <div className="flex justify-between items-center">
                             <div className="text-sm opacity-70">
-                              From: <Address address={getFromAddress(transfer)} />
+                              Contract: <Address address={getContractAddress(transfer)} />
                             </div>
                             <div className="text-sm opacity-70">
                               To: <Address address={getToAddress(transfer)} />
