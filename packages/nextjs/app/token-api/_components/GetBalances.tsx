@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { NetworkId } from "../_hooks/useTokenApi";
+import { TokenBalance, useTokenBalances } from "../_hooks/useTokenBalances";
 import { AddressInput } from "~~/components/scaffold-eth";
 
 // Define supported EVM networks
@@ -16,114 +18,175 @@ const EVM_NETWORKS: EVMNetwork[] = [
   { id: "arbitrum-one", name: "Arbitrum" },
   { id: "bsc", name: "BSC" },
   { id: "optimism", name: "Optimism" },
+  { id: "matic", name: "Polygon" },
 ];
 
-// Define TypeScript interfaces for the actual API response
-interface TokenBalance {
-  block_num: number;
-  datetime: string;
-  date: string;
-  contract: string;
-  amount: string;
-  decimals: number;
-  symbol: string;
-  network_id: string;
-  price_usd?: number;
-  value_usd?: number;
-}
-
-interface ApiResponse {
-  data: TokenBalance[];
-  statistics: {
-    bytes_read: number;
-    rows_read: number;
-    elapsed: number;
-  };
-  pagination: {
-    previous_page: number;
-    current_page: number;
-    next_page: number;
-    total_pages: number;
-  };
-  results: number;
-  total_results: number;
-  request_time: string;
-  duration_ms: number;
-}
-
-export const GetBalances = () => {
-  const [address, setAddress] = useState<string>("");
-  const [selectedNetwork, setSelectedNetwork] = useState<string>("mainnet");
+export const GetBalances = ({ isOpen = true }: { isOpen?: boolean }) => {
+  const [walletAddress, setWalletAddress] = useState<string>("");
+  const [selectedNetwork, setSelectedNetwork] = useState<NetworkId>("mainnet");
   const [balances, setBalances] = useState<TokenBalance[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pageSize, setPageSize] = useState<number>(100);
+  const [page, setPage] = useState<number>(1);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  // Use the hook but skip automatic fetching until we have an address and user clicks the button
+  const {
+    data,
+    isLoading: apiLoading,
+    error: apiError,
+    refetch,
+  } = useTokenBalances(
+    walletAddress,
+    {
+      network_id: selectedNetwork,
+      page_size: pageSize,
+      page: page,
+    },
+    { skip: true }, // Skip initial fetch until explicitly triggered
+  );
 
   // Handle network change
   const handleNetworkChange = (newNetwork: string) => {
-    setSelectedNetwork(newNetwork);
+    setSelectedNetwork(newNetwork as NetworkId);
     setBalances([]); // Clear existing balances
     setError(null);
   };
 
   const fetchBalances = async () => {
-    if (!address) {
+    if (!walletAddress) {
       setError("Please enter an address");
       return;
     }
 
-    setIsLoading(true);
     setError(null);
+    setBalances([]);
+    setIsLoading(true); // Manually set loading state
 
     try {
-      // Use the token-proxy API route
-      const url = new URL("/api/token-proxy", window.location.origin);
+      console.log(`🔍 Fetching balances for wallet: ${walletAddress}`);
+      console.log(`🔍 Using network: ${selectedNetwork}`);
 
-      // Add the path and query parameters
-      url.searchParams.append("path", `balances/evm/${address}`);
-      url.searchParams.append("network_id", selectedNetwork);
+      // Ensure the address has 0x prefix
+      const formattedAddress = walletAddress.startsWith("0x") ? walletAddress : `0x${walletAddress}`;
 
-      console.log(`🌐 Making API request via proxy: ${url.toString()}`);
-      console.log(`🔑 Using network: ${selectedNetwork}`);
+      // Define the API endpoint
+      const endpoint = `balances/evm/${formattedAddress}`;
+      console.log("🔍 API endpoint:", endpoint);
 
-      const response = await fetch(url.toString(), {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        cache: "no-store", // Disable caching
-      });
+      // Build the query parameters
+      const queryParams = new URLSearchParams();
+      queryParams.append("path", endpoint);
+      queryParams.append("network_id", selectedNetwork);
+      queryParams.append("page_size", pageSize.toString());
+      queryParams.append("page", page.toString());
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("❌ API Error Response:", errorText);
-        throw new Error(`API request failed with status ${response.status}: ${errorText}`);
+      // Call the API directly
+      const fullUrl = `/api/token-proxy?${queryParams.toString()}`;
+      console.log("🔍 Making direct API request to:", fullUrl);
+
+      try {
+        const response = await fetch(fullUrl);
+        console.log("🔍 API response status:", response.status);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("❌ API error response:", errorText);
+          throw new Error(`API request failed with status ${response.status}: ${errorText}`);
+        }
+
+        const jsonData = await response.json();
+        console.log("🔍 API response data:", jsonData);
+
+        // Process the response
+        if (jsonData.data && Array.isArray(jsonData.data)) {
+          console.log("📊 Setting balances from jsonData.data, count:", jsonData.data.length);
+
+          // Transform the data to match our TokenBalance interface
+          const mappedBalances = jsonData.data.map((balance: any) => ({
+            contract_address: balance.contract || balance.address || balance.contract_address,
+            amount: balance.amount || balance.balance || "0",
+            symbol: balance.symbol || "Unknown",
+            decimals: balance.decimals || 18,
+            name: balance.name,
+            amount_usd: balance.value_usd || balance.amount_usd,
+            network_id: balance.network_id || selectedNetwork,
+          }));
+
+          setBalances(mappedBalances);
+        } else if (Array.isArray(jsonData)) {
+          console.log("📊 Setting balances from array jsonData, count:", jsonData.length);
+
+          // Transform array data to match our interface
+          const mappedBalances = jsonData.map((balance: any) => ({
+            contract_address: balance.contract || balance.address || balance.contract_address,
+            amount: balance.amount || balance.balance || "0",
+            symbol: balance.symbol || "Unknown",
+            decimals: balance.decimals || 18,
+            name: balance.name,
+            amount_usd: balance.value_usd || balance.amount_usd,
+            network_id: balance.network_id || selectedNetwork,
+          }));
+
+          setBalances(mappedBalances);
+        } else {
+          console.log("⚠️ No token data found in response");
+          setBalances([]);
+        }
+      } catch (fetchError) {
+        console.error("❌ Fetch error:", fetchError);
+        throw fetchError;
       }
-
-      const data: ApiResponse = await response.json();
-
-      // Detailed response logging
-      console.log("📊 Full API Response:", JSON.stringify(data, null, 2));
-      console.log(`📈 Response Statistics:
-        - Total Results: ${data.total_results}
-        - Current Page: ${data.pagination?.current_page}
-        - Network: ${selectedNetwork}
-        - Number of Balances: ${data.data?.length || 0}
-      `);
-
-      setBalances(data.data || []);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "An error occurred";
       console.error("❌ Error fetching balances:", err);
       setError(errorMessage);
-      setBalances([]);
     } finally {
-      setIsLoading(false);
+      setIsLoading(false); // Always reset loading state
+    }
+  };
+
+  // Update balances when API data changes
+  useEffect(() => {
+    if (data) {
+      console.log("📊 Received balances data from hook:", data);
+      if (Array.isArray(data)) {
+        setBalances(data);
+      } else if (typeof data === "object" && data !== null) {
+        // Check if data has a data property that's an array
+        const dataArray = (data as any).data;
+        if (Array.isArray(dataArray)) {
+          setBalances(dataArray);
+        }
+      }
+    }
+
+    if (apiError) {
+      console.error("❌ API error:", apiError);
+      setError(typeof apiError === "string" ? apiError : "Failed to fetch balances");
+    }
+  }, [data, apiError]);
+
+  // Format balance value with token decimals
+  const formatBalance = (balance: TokenBalance) => {
+    if (!balance.amount || balance.decimals === undefined) return "0";
+
+    try {
+      // Convert from wei to token units
+      const value = Number(balance.amount) / Math.pow(10, balance.decimals);
+      // Format with appropriate decimal places
+      return value.toLocaleString(undefined, {
+        maximumFractionDigits: Math.min(balance.decimals, 6),
+        minimumFractionDigits: 0,
+      });
+    } catch (e) {
+      console.error("Error formatting balance:", e);
+      return balance.amount;
     }
   };
 
   return (
-    <details className="collapse bg-base-200 shadow-lg" open>
+    <details className="collapse bg-blue-500/20 shadow-lg mb-4 rounded-xl border border-blue-500/30" open={isOpen}>
       <summary className="collapse-title text-xl font-bold cursor-pointer hover:bg-base-300">
         <div className="flex justify-between items-center">
           <span>💰 Token Balances - Check token balances for any address</span>
@@ -153,7 +216,7 @@ export const GetBalances = () => {
                   <label className="label">
                     <span className="label-text text-xl font-bold">Enter Ethereum Address</span>
                   </label>
-                  <AddressInput value={address} onChange={setAddress} placeholder="Enter any address" />
+                  <AddressInput value={walletAddress} onChange={setWalletAddress} placeholder="Enter any address" />
                 </div>
                 <div className="w-full">
                   <label className="label">
@@ -176,7 +239,7 @@ export const GetBalances = () => {
                 <button
                   className={`btn btn-primary ${isLoading ? "loading" : ""}`}
                   onClick={fetchBalances}
-                  disabled={isLoading || !address}
+                  disabled={isLoading || !walletAddress}
                 >
                   {isLoading ? "Fetching..." : "Fetch Balances"}
                 </button>
@@ -210,7 +273,7 @@ export const GetBalances = () => {
             </div>
           )}
 
-          {!isLoading && !error && address && (
+          {!isLoading && !error && walletAddress && (
             <div className="card bg-base-100 shadow-xl">
               <div className="card-body">
                 <h2 className="card-title mb-4">
@@ -219,19 +282,17 @@ export const GetBalances = () => {
                 <div className="flex flex-col gap-2">
                   {balances && balances.length > 0 ? (
                     balances.map((token, index) => (
-                      <div key={`${token.contract}-${index}`} className="card bg-base-200 shadow-sm">
+                      <div key={`${token.contract_address}-${index}`} className="card bg-base-200 shadow-sm">
                         <div className="card-body p-4">
                           <div className="flex flex-col">
-                            <div className="text-lg font-semibold">{token.symbol}</div>
+                            <div className="text-lg font-semibold">{token.symbol || "Unknown Token"}</div>
                             <div className="text-xl">
-                              {(Number(token.amount) / Math.pow(10, token.decimals)).toFixed(6)} {token.symbol}
+                              {formatBalance(token)} {token.symbol}
                             </div>
-                            {token.value_usd && (
-                              <div className="text-sm text-success">${token.value_usd.toFixed(2)}</div>
+                            {token.amount_usd && (
+                              <div className="text-sm text-success">${token.amount_usd.toFixed(2)}</div>
                             )}
-                            <div className="text-xs opacity-70">
-                              Last updated: {new Date(token.datetime).toLocaleDateString()}
-                            </div>
+                            <div className="text-xs opacity-70 mt-2">Contract: {token.contract_address}</div>
                           </div>
                         </div>
                       </div>

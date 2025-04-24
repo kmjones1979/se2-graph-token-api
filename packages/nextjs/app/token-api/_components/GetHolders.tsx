@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { NetworkId } from "../_hooks/useTokenApi";
+import { TokenHolder, TokenHoldersResponse, useTokenHolders } from "../_hooks/useTokenHolders";
 import { Address, AddressInput } from "~~/components/scaffold-eth";
 
 // Define supported EVM networks
@@ -16,13 +18,14 @@ const EVM_NETWORKS: EVMNetwork[] = [
   { id: "arbitrum-one", name: "Arbitrum" },
   { id: "bsc", name: "BSC" },
   { id: "optimism", name: "Optimism" },
+  { id: "matic", name: "Polygon" },
 ];
 
-// Define TypeScript interfaces for the holders API response
-interface TokenHolder {
+// API response holder format (extends TokenHolder with additional fields)
+interface HolderItem {
   block_num: number;
-  timestamp: number;
-  date: string;
+  timestamp?: number;
+  date?: string;
   address: string;
   amount: string;
   decimals: number;
@@ -30,15 +33,24 @@ interface TokenHolder {
   network_id: string;
   price_usd?: number;
   value_usd?: number;
+  balance?: string;
+  balance_usd?: number;
+  last_updated_block?: number;
+  token_share?: number;
 }
 
 interface ApiResponse {
-  data: TokenHolder[];
-  statistics: {
+  data: HolderItem[];
+  statistics?: {
     bytes_read: number;
     rows_read: number;
     elapsed: number;
   };
+  contract_address?: string;
+  holders?: TokenHolder[];
+  page?: number;
+  page_size?: number;
+  total_holders?: number;
 }
 
 // Helper function to estimate date from block number
@@ -51,6 +63,7 @@ const estimateDateFromBlock = (blockNum: number, networkId: string): Date => {
       base: 10000000, // Base
       bsc: 34000000, // BSC
       optimism: 110000000, // Optimism
+      matic: 50000000, // Polygon
     }[networkId] || 19200000;
 
   // Average block time in seconds for different networks
@@ -61,6 +74,7 @@ const estimateDateFromBlock = (blockNum: number, networkId: string): Date => {
       base: 2,
       bsc: 3,
       optimism: 2,
+      matic: 2.5,
     }[networkId] || 12;
 
   // Calculate seconds since the block
@@ -73,15 +87,31 @@ const estimateDateFromBlock = (blockNum: number, networkId: string): Date => {
   return estimatedDate > now ? now : estimatedDate;
 };
 
-export const GetHolders = () => {
+export const GetHolders = ({ isOpen = true }: { isOpen?: boolean }) => {
   const [contractAddress, setContractAddress] = useState<string>("");
-  const [selectedNetwork, setSelectedNetwork] = useState<string>("mainnet");
-  const [holders, setHolders] = useState<TokenHolder[]>([]);
+  const [selectedNetwork, setSelectedNetwork] = useState<NetworkId>("mainnet");
+  const [holders, setHolders] = useState<HolderItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [orderBy, setOrderBy] = useState<string>("desc");
   const [limit, setLimit] = useState<number>(50);
   const [page, setPage] = useState<number>(1);
+  const [totalPages, setTotalPages] = useState<number>(1);
+
+  // Use the hook to get types but skip automatic fetching
+  const {
+    data,
+    isLoading: hookLoading,
+    error: hookError,
+  } = useTokenHolders(
+    contractAddress,
+    {
+      network_id: selectedNetwork,
+      page_size: limit,
+      page: page,
+    },
+    { skip: true }, // Skip initial fetch until explicitly triggered
+  );
 
   // Example token addresses for testing
   const exampleTokens = {
@@ -90,11 +120,12 @@ export const GetHolders = () => {
     base: "0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22", // cbETH
     bsc: "0x55d398326f99059fF775485246999027B3197955", // BSC-USD
     optimism: "0x4200000000000000000000000000000000000042", // OP Token
+    matic: "0x0000000000000000000000000000000000001010", // MATIC
   };
 
   // Handle network change
   const handleNetworkChange = (newNetwork: string) => {
-    setSelectedNetwork(newNetwork);
+    setSelectedNetwork(newNetwork as NetworkId);
     setHolders([]);
     setError(null);
     setPage(1); // Reset pagination when network changes
@@ -114,71 +145,159 @@ export const GetHolders = () => {
 
     setIsLoading(true);
     setError(null);
+    setHolders([]);
 
     try {
-      // Use the token-proxy API route
-      const url = new URL("/api/token-proxy", window.location.origin);
+      // Ensure the address has 0x prefix
+      const formattedAddress = contractAddress.startsWith("0x") ? contractAddress : `0x${contractAddress}`;
 
-      // Add the path and query parameters
-      url.searchParams.append("path", `holders/evm/${contractAddress}`);
-      url.searchParams.append("network_id", selectedNetwork);
-      url.searchParams.append("order-by", orderBy);
-      url.searchParams.append("limit", limit.toString());
-      url.searchParams.append("page", page.toString());
+      // Define the API endpoint
+      const endpoint = `holders/evm/${formattedAddress}`;
+      console.log("🔍 API endpoint:", endpoint);
 
-      console.log(`🌐 Making API request via proxy: ${url.toString()}`);
+      // Build the query parameters
+      const queryParams = new URLSearchParams();
+      queryParams.append("path", endpoint);
+      queryParams.append("network_id", selectedNetwork);
+      queryParams.append("order_by", orderBy);
+      queryParams.append("page_size", limit.toString());
+      queryParams.append("page", page.toString());
+
+      // Call the API directly
+      const fullUrl = `/api/token-proxy?${queryParams.toString()}`;
+      console.log("🔍 Making direct API request to:", fullUrl);
       console.log(`🔑 Using network: ${selectedNetwork}`);
       console.log(`📝 Contract Address: ${contractAddress}`);
 
-      const response = await fetch(url.toString(), {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        cache: "no-store",
-      });
+      const response = await fetch(fullUrl);
+      console.log("🔍 API response status:", response.status);
 
-      const responseData = await response.json();
-      console.log("📊 API Response:", responseData);
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error(`No holders found for this token contract. Please verify:
-            1. The contract address is correct
-            2. The contract is an ERC20 token
-            3. The selected network is correct (currently: ${selectedNetwork})
-            
-            Try these example tokens:
-            - Mainnet (GRT): ${exampleTokens.mainnet}
-            - Arbitrum (ARB): ${exampleTokens["arbitrum-one"]}
-            - Base (cbETH): ${exampleTokens.base}
-            - BSC (BSC-USD): ${exampleTokens.bsc}
-            - Optimism (OP): ${exampleTokens.optimism}`);
-        } else {
-          throw new Error(responseData.message || "Failed to fetch holders");
-        }
+      // Handle 404 with custom error message
+      if (response.status === 404) {
+        const errorText = await response.text();
+        throw new Error(`No holders found for this token contract. Please verify:
+          1. The contract address is correct
+          2. The contract is an ERC20 token
+          3. The selected network is correct (currently: ${selectedNetwork})
+          
+          Try these example tokens:
+          - Mainnet (GRT): ${exampleTokens.mainnet}
+          - Arbitrum (ARB): ${exampleTokens["arbitrum-one"]}
+          - Base (cbETH): ${exampleTokens.base}
+          - BSC (BSC-USD): ${exampleTokens.bsc}
+          - Optimism (OP): ${exampleTokens.optimism}
+          - Polygon (MATIC): ${exampleTokens.matic}`);
       }
 
-      setHolders(responseData.data || []);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("❌ API error response:", errorText);
+        throw new Error(`API request failed with status ${response.status}: ${errorText}`);
+      }
 
-      console.log(`📈 Response Statistics:
-        - Number of Holders: ${responseData.data?.length || 0}
-        - Network: ${selectedNetwork}
-        - Order: ${orderBy}
-        - Page: ${page}
-      `);
+      const jsonData: ApiResponse = await response.json();
+      console.log("🔍 API response data:", jsonData);
+
+      // Process the response based on format
+      if (jsonData.data && Array.isArray(jsonData.data)) {
+        console.log("📊 Setting holders from jsonData.data, count:", jsonData.data.length);
+        setHolders(jsonData.data);
+
+        // Update pagination if possible
+        if (jsonData.page && jsonData.total_holders) {
+          const totalPgs = Math.ceil(jsonData.total_holders / (jsonData.page_size || limit));
+          setTotalPages(totalPgs);
+          console.log(`📊 Total pages: ${totalPgs}, Current page: ${jsonData.page}`);
+        }
+      } else if (jsonData.holders && Array.isArray(jsonData.holders)) {
+        console.log("📊 Setting holders from jsonData.holders, count:", jsonData.holders.length);
+
+        // Map holders to expected format
+        const mappedHolders = jsonData.holders.map((holder: TokenHolder) => ({
+          address: holder.address,
+          amount: holder.balance,
+          balance: holder.balance,
+          block_num: holder.last_updated_block,
+          decimals: 18, // Default decimals if not provided
+          symbol: "TOKEN", // Default symbol if not provided
+          network_id: selectedNetwork,
+          value_usd: holder.balance_usd,
+          token_share: holder.token_share,
+        }));
+
+        setHolders(mappedHolders);
+
+        // Update pagination if possible
+        if (jsonData.page && jsonData.total_holders) {
+          const totalPgs = Math.ceil(jsonData.total_holders / (jsonData.page_size || limit));
+          setTotalPages(totalPgs);
+          console.log(`📊 Total pages: ${totalPgs}, Current page: ${jsonData.page}`);
+        }
+      } else if (Array.isArray(jsonData)) {
+        console.log("📊 Setting holders from array jsonData, count:", jsonData.length);
+
+        // Map array data to expected format
+        const mappedHolders = jsonData.map((item: any) => ({
+          address: item.address,
+          amount: item.amount || item.balance || "0",
+          balance: item.balance || item.amount || "0",
+          block_num: item.block_num || item.last_updated_block || 0,
+          decimals: item.decimals || 18,
+          symbol: item.symbol || "TOKEN",
+          network_id: item.network_id || selectedNetwork,
+          value_usd: item.value_usd || item.balance_usd,
+          token_share: item.token_share,
+        }));
+
+        setHolders(mappedHolders);
+      } else {
+        console.log("⚠️ No token holders found in response or unexpected format");
+        setHolders([]);
+      }
+
+      // If no total pages info, estimate based on result length
+      if (holders.length < limit) {
+        setTotalPages(page); // Assume this is the last page
+      }
     } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "An error occurred";
       console.error("❌ Error fetching holders:", err);
-      setError(err instanceof Error ? err.message : "An error occurred while fetching holders");
-      setHolders([]);
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Navigation functions
+  const goToNextPage = () => {
+    if (page < totalPages) {
+      setPage(prevPage => prevPage + 1);
+      fetchHolders();
+    }
+  };
+
+  const goToPrevPage = () => {
+    if (page > 1) {
+      setPage(prevPage => prevPage - 1);
+      fetchHolders();
+    }
+  };
+
+  // Format token amount with appropriate decimals
+  const formatTokenAmount = (amount: string, decimals: number) => {
+    try {
+      const value = Number(amount) / Math.pow(10, decimals);
+      return value.toLocaleString(undefined, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: Math.min(decimals, 6),
+      });
+    } catch (e) {
+      return amount;
+    }
+  };
+
   return (
-    <details className="collapse bg-base-200 shadow-lg" open>
+    <details className="collapse bg-blue-500/20 shadow-lg mb-4 rounded-xl border border-blue-500/30" open={isOpen}>
       <summary className="collapse-title text-xl font-bold cursor-pointer hover:bg-base-300">
         <div className="flex justify-between items-center">
           <span>👥 Token Holders - View all holders of an ERC20 token</span>
@@ -264,19 +383,13 @@ export const GetHolders = () => {
               </div>
               <div className="flex justify-between items-center mt-4">
                 <div className="flex gap-2">
-                  <button
-                    className="btn btn-sm"
-                    onClick={() => setPage(p => Math.max(1, p - 1))}
-                    disabled={page === 1 || isLoading}
-                  >
+                  <button className="btn btn-sm" onClick={goToPrevPage} disabled={page === 1 || isLoading}>
                     Previous
                   </button>
-                  <span className="py-1">Page {page}</span>
-                  <button
-                    className="btn btn-sm"
-                    onClick={() => setPage(p => p + 1)}
-                    disabled={isLoading || holders.length < limit}
-                  >
+                  <span className="py-1">
+                    Page {page} of {totalPages || "?"}
+                  </span>
+                  <button className="btn btn-sm" onClick={goToNextPage} disabled={isLoading || holders.length < limit}>
                     Next
                   </button>
                 </div>
@@ -330,16 +443,24 @@ export const GetHolders = () => {
                         <div className="card-body p-4">
                           <div className="flex flex-col">
                             <div className="flex justify-between items-center">
-                              <div className="text-lg font-semibold">Holder #{index + 1}</div>
+                              <div className="text-lg font-semibold">Holder #{(page - 1) * limit + index + 1}</div>
                               <div className="text-sm opacity-70">
                                 <Address address={holder.address} />
                               </div>
                             </div>
                             <div className="text-xl">
-                              {(Number(holder.amount) / Math.pow(10, holder.decimals)).toFixed(6)} {holder.symbol}
+                              {formatTokenAmount(holder.amount || holder.balance || "0", holder.decimals)}{" "}
+                              {holder.symbol}
                             </div>
-                            {holder.value_usd && (
-                              <div className="text-sm text-success">${holder.value_usd.toFixed(2)}</div>
+                            {(holder.value_usd || holder.balance_usd) && (
+                              <div className="text-sm text-success">
+                                ${(holder.value_usd || holder.balance_usd || 0).toFixed(2)}
+                              </div>
+                            )}
+                            {holder.token_share !== undefined && (
+                              <div className="text-sm opacity-80">
+                                {(holder.token_share * 100).toFixed(4)}% of total supply
+                              </div>
                             )}
                             <div className="text-xs opacity-70">
                               Last updated:{" "}

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { NetworkId } from "../_hooks/useTokenApi";
+import { OHLCDataPoint, PoolOHLCParams, PoolOHLCResponse, useTokenOHLCByPool } from "../_hooks/useTokenOHLCByPool";
 import { Address, AddressInput } from "~~/components/scaffold-eth";
 
 // Define supported EVM networks
@@ -20,7 +22,7 @@ const EVM_NETWORKS: EVMNetwork[] = [
 ];
 
 // Define supported time intervals
-const TIME_INTERVALS = [
+const TIME_INTERVALS: { id: PoolOHLCParams["resolution"]; name: string }[] = [
   { id: "1h", name: "1 Hour" },
   { id: "4h", name: "4 Hours" },
   { id: "1d", name: "1 Day" },
@@ -35,23 +37,16 @@ const TIME_SPANS = [
   { id: "90d", name: "Last 90 Days", seconds: 7776000 },
 ];
 
-// Define TypeScript interfaces for the OHLC API response
-interface OHLCData {
-  datetime: string;
-  network_id: string;
-  pair: string;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-  uaw?: number; // Unique active wallets
-  transactions?: number;
+// Extended OHLC data interface for our component
+interface OHLCDataExtended extends OHLCDataPoint {
+  datetime?: string;
+  network_id?: string;
+  pair?: string;
 }
 
 interface ApiResponse {
-  data: OHLCData[];
-  statistics: {
+  data?: OHLCDataExtended[];
+  statistics?: {
     bytes_read: number;
     rows_read: number;
     elapsed: number;
@@ -64,23 +59,57 @@ interface ApiResponse {
   };
   results?: number;
   total_results?: number;
+  pool_address?: string;
+  token0_address?: string;
+  token0_symbol?: string;
+  token0_name?: string;
+  token0_decimals?: number;
+  token1_address?: string;
+  token1_symbol?: string;
+  token1_name?: string;
+  token1_decimals?: number;
+  protocol?: string;
+  network_id?: NetworkId;
+  resolution?: string;
+  ohlc?: OHLCDataPoint[];
 }
 
-export const GetOHLCByPool = () => {
+export const GetOHLCByPool = ({ isOpen = true }: { isOpen?: boolean }) => {
   // State for search parameters
   const [poolAddress, setPoolAddress] = useState<string>("");
-  const [selectedNetwork, setSelectedNetwork] = useState<string>("mainnet");
-  const [selectedInterval, setSelectedInterval] = useState<string>("1d");
+  const [selectedNetwork, setSelectedNetwork] = useState<NetworkId>("mainnet");
+  const [selectedInterval, setSelectedInterval] = useState<PoolOHLCParams["resolution"]>("1d");
   const [selectedTimeSpan, setSelectedTimeSpan] = useState<string>("30d");
   const [page, setPage] = useState<number>(1);
   const [limit, setLimit] = useState<number>(10);
   const [useMinimalParams, setUseMinimalParams] = useState<boolean>(true);
 
   // State for API results
-  const [ohlcData, setOhlcData] = useState<OHLCData[]>([]);
+  const [ohlcData, setOhlcData] = useState<OHLCDataExtended[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [totalPages, setTotalPages] = useState<number>(1);
+  const [poolInfo, setPoolInfo] = useState<{
+    token0Symbol?: string;
+    token1Symbol?: string;
+    protocol?: string;
+  } | null>(null);
+
+  // Use the hook to get types but skip automatic fetching
+  const {
+    data,
+    isLoading: hookLoading,
+    error: hookError,
+  } = useTokenOHLCByPool(
+    poolAddress,
+    {
+      network_id: selectedNetwork,
+      resolution: selectedInterval,
+      from_timestamp: getTimeRange().startTime,
+      to_timestamp: getTimeRange().endTime,
+    },
+    { skip: true }, // Skip initial fetch until explicitly triggered
+  );
 
   // Example pool addresses
   const examplePools = {
@@ -94,21 +123,22 @@ export const GetOHLCByPool = () => {
 
   // Handle network change
   const handleNetworkChange = (newNetwork: string) => {
-    setSelectedNetwork(newNetwork);
+    setSelectedNetwork(newNetwork as NetworkId);
     setOhlcData([]);
     setError(null);
     setPage(1);
+    setPoolInfo(null);
   };
 
   // Handle interval change
-  const handleIntervalChange = (newInterval: string) => {
+  const handleIntervalChange = (newInterval: PoolOHLCParams["resolution"]) => {
     setSelectedInterval(newInterval);
     setOhlcData([]);
     setError(null);
   };
 
   // Calculate time range based on selected time span
-  const getTimeRange = () => {
+  function getTimeRange() {
     const now = Math.floor(Date.now() / 1000); // Current timestamp in seconds
     const timeSpanObj = TIME_SPANS.find(span => span.id === selectedTimeSpan);
     if (!timeSpanObj) return { startTime: now - 2592000, endTime: now }; // Default to 30 days
@@ -117,7 +147,7 @@ export const GetOHLCByPool = () => {
       startTime: now - timeSpanObj.seconds,
       endTime: now,
     };
-  };
+  }
 
   const fetchOHLCData = async () => {
     if (!poolAddress) {
@@ -133,76 +163,129 @@ export const GetOHLCByPool = () => {
 
     setIsLoading(true);
     setError(null);
+    setPoolInfo(null);
 
     try {
-      // Use the token-proxy API route
-      const url = new URL("/api/token-proxy", window.location.origin);
+      // Ensure the address has 0x prefix
+      const formattedAddress = poolAddress.startsWith("0x") ? poolAddress : `0x${poolAddress}`;
 
-      // Add the essential path parameter
-      url.searchParams.append("path", `ohlc/pools/evm/${poolAddress}`);
+      // Define the API endpoint
+      const endpoint = `ohlc/pools/evm/${formattedAddress}`;
+      console.log("🔍 API endpoint:", endpoint);
 
-      // Add network_id as it's typically required
-      url.searchParams.append("network_id", selectedNetwork);
+      // Build the query parameters
+      const queryParams = new URLSearchParams();
+      queryParams.append("path", endpoint);
+      queryParams.append("network_id", selectedNetwork);
 
       // Only add additional parameters if not using minimal params mode
       if (!useMinimalParams) {
         const { startTime, endTime } = getTimeRange();
-        url.searchParams.append("interval", selectedInterval);
-        url.searchParams.append("startTime", startTime.toString());
-        url.searchParams.append("endTime", endTime.toString());
-        url.searchParams.append("limit", limit.toString());
-        url.searchParams.append("page", page.toString());
+        queryParams.append("resolution", selectedInterval ?? "1d");
+        queryParams.append("from_timestamp", startTime.toString());
+        queryParams.append("to_timestamp", endTime.toString());
       }
 
-      console.log(`🌐 Making API request via proxy: ${url.toString()}`);
+      // Call the API directly
+      const fullUrl = `/api/token-proxy?${queryParams.toString()}`;
+      console.log("🔍 Making direct API request to:", fullUrl);
       console.log(`🔑 Using network: ${selectedNetwork}`);
       console.log(`🔧 Mode: ${useMinimalParams ? "Minimal parameters" : "Full parameters"}`);
 
-      const response = await fetch(url.toString(), {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        cache: "no-store", // Disable caching
-      });
+      const response = await fetch(fullUrl);
+      console.log("🔍 API response status:", response.status);
+
+      // Handle 404 with custom error message
+      if (response.status === 404) {
+        const errorText = await response.text();
+        throw new Error(`No OHLC data found for this liquidity pool. Please verify:
+          1. The pool address is correct
+          2. The pool has trading activity
+          3. The selected network is correct (currently: ${selectedNetwork})
+          
+          Try these example pools:
+          - Mainnet (ETH/USDC): ${examplePools.mainnet}
+          - Base (ETH/USDbC): ${examplePools.base}
+          - Arbitrum (ETH/USDC): ${examplePools["arbitrum-one"]}
+          - BSC (BNB/BUSD): ${examplePools.bsc}
+          - Optimism (ETH/USDC): ${examplePools.optimism}
+          - Polygon (MATIC/USDC): ${examplePools.matic}`);
+      }
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("❌ API Error Response:", errorText);
+        console.error("❌ API error response:", errorText);
         throw new Error(`API request failed with status ${response.status}: ${errorText}`);
       }
 
-      const data: ApiResponse = await response.json();
+      const jsonData: ApiResponse = await response.json();
+      console.log("🔍 API response data:", jsonData);
 
-      // Detailed response logging
-      console.log("📊 Full API Response:", JSON.stringify(data, null, 2));
-      console.log(`📈 Response Statistics:
-        - Number of OHLC Records: ${data.data?.length || 0}
-        - Network: ${selectedNetwork}
-        - Interval: ${selectedInterval}
-      `);
+      // Process the response based on format
+      if (jsonData.data && Array.isArray(jsonData.data)) {
+        console.log("📊 Setting OHLC data from jsonData.data");
+        setOhlcData(jsonData.data);
 
-      setOhlcData(data.data || []);
+        // Update pagination info if available
+        if (jsonData.pagination) {
+          setTotalPages(jsonData.pagination.total_pages);
+        } else if (jsonData.total_results) {
+          setTotalPages(Math.ceil(jsonData.total_results / limit));
+        }
+      } else if (jsonData.ohlc && Array.isArray(jsonData.ohlc)) {
+        console.log("📊 Setting OHLC data from jsonData.ohlc");
 
-      // Update pagination info if available
-      if (data.pagination) {
-        setTotalPages(data.pagination.total_pages);
-      } else if (data.total_results) {
-        setTotalPages(Math.ceil(data.total_results / limit));
+        // Convert the data to our expected format
+        const formattedData = jsonData.ohlc.map(item => ({
+          ...item,
+          // Convert timestamp to datetime string for display
+          datetime: new Date(item.timestamp * 1000).toISOString(),
+          network_id: jsonData.network_id,
+          // Create pair name from token symbols if available
+          pair:
+            jsonData.token0_symbol && jsonData.token1_symbol
+              ? `${jsonData.token0_symbol}/${jsonData.token1_symbol}`
+              : undefined,
+        }));
+
+        setOhlcData(formattedData);
+
+        // Set pool info if available
+        if (jsonData.token0_symbol || jsonData.token1_symbol || jsonData.protocol) {
+          setPoolInfo({
+            token0Symbol: jsonData.token0_symbol,
+            token1Symbol: jsonData.token1_symbol,
+            protocol: jsonData.protocol,
+          });
+        }
+
+        // Default pagination for this format
+        setTotalPages(1);
+      } else {
+        console.log("⚠️ No OHLC data found in response or unexpected format");
+        setOhlcData([]);
+        setPoolInfo(null);
+        setTotalPages(1);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "An error occurred";
       console.error("❌ Error fetching OHLC data:", err);
       setError(errorMessage);
       setOhlcData([]);
+      setPoolInfo(null);
     } finally {
       setIsLoading(false);
     }
   };
 
   // Format date
-  const formatDate = (dateStr: string) => {
+  const formatDate = (dateStr: string | number | undefined) => {
+    if (typeof dateStr === "undefined") {
+      return new Date().toLocaleString(); // Default to current date if undefined
+    }
+    if (typeof dateStr === "number") {
+      return new Date(dateStr * 1000).toLocaleString();
+    }
     return new Date(dateStr).toLocaleString();
   };
 
@@ -245,7 +328,7 @@ export const GetOHLCByPool = () => {
   };
 
   return (
-    <details className="collapse bg-base-200 shadow-lg" open>
+    <details className="collapse bg-blue-500/20 shadow-lg mb-4 rounded-xl border border-blue-500/30" open={isOpen}>
       <summary className="collapse-title text-xl font-bold cursor-pointer hover:bg-base-300">
         <div className="flex justify-between items-center">
           <span>📊 Pool OHLC Data - View price history for token pools</span>
@@ -308,7 +391,7 @@ export const GetOHLCByPool = () => {
                     <select
                       className="select select-bordered w-full"
                       value={selectedInterval}
-                      onChange={e => handleIntervalChange(e.target.value)}
+                      onChange={e => handleIntervalChange(e.target.value as PoolOHLCParams["resolution"])}
                       disabled={useMinimalParams}
                     >
                       {TIME_INTERVALS.map(interval => (
@@ -409,6 +492,12 @@ export const GetOHLCByPool = () => {
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="card-title">
                     Price Data for Pool <Address address={poolAddress} />
+                    {poolInfo && poolInfo.token0Symbol && poolInfo.token1Symbol && (
+                      <span className="ml-2 text-sm font-normal">
+                        ({poolInfo.token0Symbol}/{poolInfo.token1Symbol}
+                        {poolInfo.protocol && ` on ${poolInfo.protocol}`})
+                      </span>
+                    )}
                   </h2>
                   <div className="flex gap-2">
                     <button className="btn btn-sm btn-outline" onClick={goToPrevPage} disabled={page <= 1 || isLoading}>
@@ -438,15 +527,16 @@ export const GetOHLCByPool = () => {
                         <th>Close</th>
                         <th>Change</th>
                         <th>Volume</th>
-                        {useMinimalParams ? null : <th>Wallets</th>}
-                        {useMinimalParams ? null : <th>Transactions</th>}
+                        {!useMinimalParams && <th>Volume USD</th>}
                       </tr>
                     </thead>
                     <tbody>
                       {ohlcData.map((data, index) => (
-                        <tr key={`${data.datetime}-${index}`}>
-                          <td>{formatDate(data.datetime)}</td>
-                          <td>{data.pair}</td>
+                        <tr key={`${data.datetime || data.timestamp}-${index}`}>
+                          <td>{formatDate(data.datetime || data.timestamp)}</td>
+                          <td>
+                            {data.pair || (poolInfo && `${poolInfo.token0Symbol}/${poolInfo.token1Symbol}`) || "—"}
+                          </td>
                           <td>${formatPrice(data.open)}</td>
                           <td>${formatPrice(data.high)}</td>
                           <td>${formatPrice(data.low)}</td>
@@ -458,9 +548,17 @@ export const GetOHLCByPool = () => {
                           >
                             {calculatePriceChange(data.open, data.close)}%
                           </td>
-                          <td>${formatVolume(data.volume)}</td>
-                          {useMinimalParams ? null : <td>{data.uaw?.toLocaleString() || "N/A"}</td>}
-                          {useMinimalParams ? null : <td>{data.transactions?.toLocaleString() || "N/A"}</td>}
+                          <td>
+                            $
+                            {formatVolume(
+                              "volume_token0" in data
+                                ? (data as any).volume_token0
+                                : "volume" in data
+                                  ? (data as any).volume
+                                  : 0,
+                            )}
+                          </td>
+                          {!useMinimalParams && <td>${formatVolume(data.volume_usd || 0)}</td>}
                         </tr>
                       ))}
                     </tbody>

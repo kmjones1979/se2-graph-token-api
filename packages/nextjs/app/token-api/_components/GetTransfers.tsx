@@ -1,156 +1,280 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { NetworkId } from "../_hooks/useTokenApi";
+import { TokenTransfer, TokenTransferItem, useTokenTransfers } from "../_hooks/useTokenTransfers";
+import { EVMNetwork } from "../_types/common";
 import { Address, AddressInput } from "~~/components/scaffold-eth";
 
-// Define supported EVM networks
-interface EVMNetwork {
-  id: string;
-  name: string;
-  icon?: string;
-}
+// Combined type to handle both API response formats
+type CombinedTransfer = TokenTransferItem | TokenTransfer;
 
 const EVM_NETWORKS: EVMNetwork[] = [
   { id: "mainnet", name: "Ethereum" },
   { id: "base", name: "Base" },
   { id: "arbitrum-one", name: "Arbitrum" },
-  { id: "bsc", name: "BSC" },
+  { id: "bsc", name: "BNB Smart Chain" },
   { id: "optimism", name: "Optimism" },
+  { id: "matic", name: "Polygon" },
 ];
 
-// Define TypeScript interfaces for the transfers API response
-interface TokenTransfer {
-  block_num: number;
-  timestamp: number;
-  date: string;
-  contract: string;
-  from: string;
-  to: string;
-  amount: string;
-  transaction_id: string;
-  decimals: number;
-  symbol: string;
-  network_id: string;
-  price_usd?: number;
-  value_usd?: number;
-}
-
-interface ApiResponse {
-  data: TokenTransfer[];
-  statistics: {
-    bytes_read: number;
-    rows_read: number;
-    elapsed: number;
-  };
-}
-
-// Helper function to estimate date from block number
+// Helper function to estimate date from block number and network
 const estimateDateFromBlock = (blockNum: number, networkId: string): Date => {
-  // Current block numbers as of May 2024 (conservative estimates)
-  const currentBlock =
-    {
-      mainnet: 19200000, // Ethereum mainnet
-      "arbitrum-one": 175000000, // Arbitrum
-      base: 10000000, // Base
-      bsc: 34000000, // BSC
-      optimism: 110000000, // Optimism
-    }[networkId] || 19200000;
-
-  // Average block time in seconds for different networks
-  const blockTime =
-    {
-      mainnet: 12,
-      "arbitrum-one": 0.25,
-      base: 2,
-      bsc: 3,
-      optimism: 2,
-    }[networkId] || 12;
-
-  // Calculate seconds since the block
+  const now = new Date();
+  const blockTime = networkId === "mainnet" ? 12 : 3; // Estimated seconds per block
+  // Current block estimates based on network
+  const currentBlock = now.getTime() / 1000 / blockTime;
   const blockDiff = Math.max(0, currentBlock - blockNum); // Ensure non-negative
   const secondsAgo = blockDiff * blockTime;
 
   // Calculate the date, ensuring it's not in the future
-  const now = new Date();
   const estimatedDate = new Date(now.getTime() - secondsAgo * 1000);
   return estimatedDate > now ? now : estimatedDate;
 };
 
-export const GetTransfers = () => {
-  const [contractAddress, setContractAddress] = useState<string>("");
-  const [selectedNetwork, setSelectedNetwork] = useState<string>("mainnet");
-  const [transfers, setTransfers] = useState<TokenTransfer[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+export const GetTransfers = ({ isOpen = true }: { isOpen?: boolean }) => {
+  const [walletAddress, setWalletAddress] = useState<string>("");
+  const [selectedNetwork, setSelectedNetwork] = useState<NetworkId>("mainnet");
+  const [transfers, setTransfers] = useState<CombinedTransfer[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [age, setAge] = useState<number>(30); // Default to 30 days as per docs
+  const [age, setAge] = useState<number>(180); // Default to 180 days (maximum time frame)
+  const [limit, setLimit] = useState<number>(100); // Default to 100 results
+  const [page, setPage] = useState<number>(1); // Default to first page
+  const [totalPages, setTotalPages] = useState<number>(1); // Total available pages
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  // Skip the API call until explicitly triggered
+  const {
+    data,
+    isLoading: apiLoading,
+    error: apiError,
+    refetch,
+  } = useTokenTransfers(
+    walletAddress,
+    {
+      network_id: selectedNetwork,
+      page_size: 100,
+    },
+    { skip: true }, // Always skip initial fetch
+  );
+
+  // Extract transaction ID helper function
+  const getTxId = (transfer: CombinedTransfer): string => {
+    return (transfer as TokenTransferItem).transaction_id || (transfer as TokenTransfer).tx_hash || "";
+  };
+
+  // Extract from address helper function
+  const getFromAddress = (transfer: CombinedTransfer): string => {
+    return (transfer as TokenTransferItem).from || (transfer as TokenTransfer).from_address || "";
+  };
+
+  // Extract to address helper function
+  const getToAddress = (transfer: CombinedTransfer): string => {
+    return (transfer as TokenTransferItem).to || (transfer as TokenTransfer).to_address || "";
+  };
+
+  // Extract amount/value helper function
+  const getAmount = (transfer: CombinedTransfer): string => {
+    return (
+      (transfer as TokenTransferItem).amount ||
+      (transfer as TokenTransfer).value_display ||
+      (transfer as TokenTransfer).value ||
+      ""
+    );
+  };
+
+  // Extract timestamp helper function
+  const getTimestamp = (transfer: CombinedTransfer): number => {
+    if ((transfer as TokenTransferItem).datetime) {
+      // Try to parse datetime string to timestamp
+      try {
+        return new Date((transfer as TokenTransferItem).datetime).getTime() / 1000;
+      } catch (e) {
+        console.error("Error parsing datetime:", e);
+      }
+    }
+    return (transfer as TokenTransferItem).timestamp || (transfer as TokenTransfer).block_timestamp || 0;
+  };
+
+  // Extract symbol helper function
+  const getSymbol = (transfer: CombinedTransfer): string => {
+    return (transfer as TokenTransferItem).symbol || (transfer as TokenTransfer).type || "";
+  };
 
   // Handle network change
   const handleNetworkChange = (newNetwork: string) => {
-    setSelectedNetwork(newNetwork);
+    setSelectedNetwork(newNetwork as NetworkId);
     setTransfers([]); // Clear existing transfers
     setError(null);
   };
 
-  const fetchTransfers = async () => {
-    if (!contractAddress) {
-      setError("Please enter a contract address");
+  // Function to go to next page
+  const nextPage = () => {
+    if (page < totalPages) {
+      setPage(page + 1);
+      fetchTransfers(page + 1);
+    }
+  };
+
+  // Function to go to previous page
+  const prevPage = () => {
+    if (page > 1) {
+      setPage(page - 1);
+      fetchTransfers(page - 1);
+    }
+  };
+
+  // Fetch transfers when button is clicked
+  const fetchTransfers = async (pageNum = page) => {
+    if (!walletAddress) {
+      setError("Please enter a wallet address");
       return;
     }
 
-    setIsLoading(true);
     setError(null);
+    setTransfers([]); // Clear existing transfers
+    setIsLoading(true); // Set loading state manually
+
+    console.log("🔍 Fetching transfers for wallet:", walletAddress);
+    console.log("🔍 Using network:", selectedNetwork);
+    console.log("🔍 Looking back:", age, "days");
+    console.log("🔍 Page:", pageNum, "with", limit, "results per page");
 
     try {
-      // Use the token-proxy API route
-      const url = new URL("/api/token-proxy", window.location.origin);
+      // Ensure the address has 0x prefix
+      const formattedAddress = walletAddress.startsWith("0x") ? walletAddress : `0x${walletAddress}`;
 
-      // Add the path and query parameters
-      url.searchParams.append("path", `transfers/evm/${contractAddress}`);
-      url.searchParams.append("network_id", selectedNetwork);
-      url.searchParams.append("age", age.toString());
-      url.searchParams.append("limit", "100"); // Request 100 transfers
+      // Try a different endpoint format based on Pinax API documentation
+      // Instead of transfers/evm/{address}, try just transfers with address as a param
+      const endpoint = `balances/evm/${formattedAddress}`;
+      console.log("🔍 API endpoint:", endpoint);
 
-      console.log(`🌐 Making API request via proxy: ${url.toString()}`);
-      console.log(`🔑 Using network: ${selectedNetwork}`);
+      // Build the query parameters
+      const queryParams = new URLSearchParams();
+      queryParams.append("path", endpoint);
+      queryParams.append("network_id", selectedNetwork);
+      // Don't include age parameter for balances endpoint
+      queryParams.append("page_size", limit.toString());
+      queryParams.append("page", pageNum.toString());
 
-      const response = await fetch(url.toString(), {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        cache: "no-store", // Disable caching
-      });
+      // Call the API directly
+      const fullUrl = `/api/token-proxy?${queryParams.toString()}`;
+      console.log("🔍 Making direct API request to:", fullUrl);
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("❌ API Error Response:", errorText);
-        throw new Error(`API request failed with status ${response.status}: ${errorText}`);
+      try {
+        const response = await fetch(fullUrl);
+        console.log("🔍 API response status:", response.status);
+
+        // Handle 404 responses with "No data found" message more gracefully
+        if (response.status === 404) {
+          console.log("⚠️ API returned 404 - No data found for this wallet");
+          setTransfers([]);
+          return; // Exit without throwing an error
+        }
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("❌ API error response:", errorText);
+          throw new Error(`API request failed with status ${response.status}: ${errorText}`);
+        }
+
+        const jsonData = await response.json();
+        console.log("🔍 API response data:", jsonData);
+
+        // Process the response - this is for balances, but we'll adapt it to show as transfers
+        if (jsonData.data && Array.isArray(jsonData.data)) {
+          console.log("📊 Setting transfers from jsonData.data");
+          // Convert balances to a transfer-like format for display
+          const balancesAsTransfers = jsonData.data.map((balance: any) => ({
+            block_num: balance.block_num,
+            datetime: balance.datetime,
+            contract: balance.contract,
+            from: "0x0000000000000000000000000000000000000000", // Unknown sender for balances
+            to: walletAddress,
+            amount: balance.amount,
+            value: balance.value,
+            network_id: balance.network_id,
+            symbol: balance.symbol,
+            decimals: balance.decimals,
+            transaction_id: "N/A", // Not available for balances
+            price_usd: balance.price_usd,
+            value_usd: balance.value_usd,
+          }));
+
+          setTransfers(balancesAsTransfers);
+
+          // Update pagination info if available
+          if (jsonData.pagination) {
+            setTotalPages(jsonData.pagination.total_pages || 1);
+          }
+
+          // Show total results info
+          if (jsonData.total_results !== undefined) {
+            console.log(`📊 Total balances available: ${jsonData.total_results}`);
+          }
+        } else if (Array.isArray(jsonData)) {
+          console.log("📊 Setting transfers from array jsonData");
+          setTransfers(jsonData);
+        } else if (jsonData.transfers && Array.isArray(jsonData.transfers)) {
+          console.log("📊 Setting transfers from jsonData.transfers");
+          setTransfers(jsonData.transfers);
+        } else {
+          console.log("⚠️ No token data found in response");
+          setTransfers([]);
+        }
+      } catch (fetchError) {
+        console.error("❌ Fetch error:", fetchError);
+        throw fetchError;
       }
-
-      const data: ApiResponse = await response.json();
-
-      // Detailed response logging
-      console.log("📊 Full API Response:", JSON.stringify(data, null, 2));
-      console.log(`📈 Response Statistics:
-        - Number of Transfers: ${data.data?.length || 0}
-        - Network: ${selectedNetwork}
-        - Time Range: Last ${age} days
-      `);
-
-      setTransfers(data.data || []);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "An error occurred";
       console.error("❌ Error fetching transfers:", err);
       setError(errorMessage);
-      setTransfers([]);
     } finally {
-      setIsLoading(false);
+      setIsLoading(false); // Always reset loading state
     }
   };
 
+  // Update transfers when data is received from the hook
+  useEffect(() => {
+    console.log("Full API response:", data);
+
+    if (data) {
+      // Check if data is an array (direct response format)
+      if (Array.isArray(data)) {
+        console.log("📊 Transfers received (array format):", data.length);
+        setTransfers(data);
+      }
+      // Check for traditional TokenTransfersResponse format
+      else if (data.transfers) {
+        console.log("📊 Transfers received (transfers format):", data.transfers.length);
+        setTransfers(data.transfers);
+      }
+      // Check for alternative API response format
+      else if (data.data) {
+        console.log("📊 Transfers received (data format):", data.data.length);
+        setTransfers(data.data);
+      }
+      // Handle empty or unexpected response
+      else {
+        console.warn("Unexpected API response format:", data);
+        setTransfers([]);
+      }
+    } else if (apiError) {
+      console.error("❌ API Error:", apiError);
+      setError(typeof apiError === "string" ? apiError : "Failed to fetch transfers");
+    }
+  }, [data, apiError]);
+
+  // Add useEffect to monitor state changes
+  useEffect(() => {
+    console.log("Wallet address state changed:", walletAddress);
+    console.log("Is loading state:", apiLoading);
+    console.log("Button should be disabled:", apiLoading || !walletAddress);
+  }, [walletAddress, apiLoading]);
+
   return (
-    <details className="collapse bg-base-200 shadow-lg" open>
+    <details className="collapse bg-blue-500/20 shadow-lg mb-4 rounded-xl border border-blue-500/30" open={isOpen}>
       <summary className="collapse-title text-xl font-bold cursor-pointer hover:bg-base-300">
         <div className="flex justify-between items-center">
           <span>🔄 Token Transfers - View token transfer history</span>
@@ -178,36 +302,69 @@ export const GetTransfers = () => {
               <div className="flex flex-col gap-4">
                 <div className="w-full">
                   <label className="label">
-                    <span className="label-text text-xl font-bold">Enter Token Contract Address</span>
+                    <span className="label-text text-xl font-bold">Enter Wallet Address</span>
                   </label>
                   <AddressInput
-                    value={contractAddress}
-                    onChange={setContractAddress}
-                    placeholder="Enter token contract address"
+                    value={walletAddress}
+                    onChange={setWalletAddress}
+                    placeholder="Enter wallet address to view transfers"
                   />
                 </div>
-                <div className="w-full">
-                  <label className="label">
-                    <span className="label-text text-base">Select Network</span>
-                  </label>
-                  <select
-                    className="select select-bordered w-full"
-                    value={selectedNetwork}
-                    onChange={e => handleNetworkChange(e.target.value)}
-                  >
-                    {EVM_NETWORKS.map(network => (
-                      <option key={network.id} value={network.id}>
-                        {network.name}
-                      </option>
-                    ))}
-                  </select>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="w-full">
+                    <label className="label">
+                      <span className="label-text text-base">Select Network</span>
+                    </label>
+                    <select
+                      className="select select-bordered w-full"
+                      value={selectedNetwork}
+                      onChange={e => handleNetworkChange(e.target.value)}
+                    >
+                      {EVM_NETWORKS.map(network => (
+                        <option key={network.id} value={network.id}>
+                          {network.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="w-full">
+                    <label className="label">
+                      <span className="label-text text-base">Age (Days)</span>
+                    </label>
+                    <select
+                      className="select select-bordered w-full"
+                      value={age}
+                      onChange={e => setAge(Number(e.target.value))}
+                    >
+                      <option value={7}>Last 7 days</option>
+                      <option value={30}>Last 30 days</option>
+                      <option value={90}>Last 90 days</option>
+                      <option value={180}>Last 180 days (max)</option>
+                    </select>
+                  </div>
+                  <div className="w-full">
+                    <label className="label">
+                      <span className="label-text text-base">Results per Page</span>
+                    </label>
+                    <select
+                      className="select select-bordered w-full"
+                      value={limit}
+                      onChange={e => setLimit(Number(e.target.value))}
+                    >
+                      <option value={10}>10 Results</option>
+                      <option value={25}>25 Results</option>
+                      <option value={50}>50 Results</option>
+                      <option value={100}>100 Results</option>
+                      <option value={1000}>1000 Results (max)</option>
+                    </select>
+                  </div>
                 </div>
               </div>
               <div className="card-actions justify-end mt-4">
                 <button
                   className={`btn btn-primary ${isLoading ? "loading" : ""}`}
-                  onClick={fetchTransfers}
-                  disabled={isLoading || !contractAddress}
+                  onClick={() => fetchTransfers()}
+                  disabled={isLoading || !walletAddress}
                 >
                   {isLoading ? "Fetching..." : "Fetch Transfers"}
                 </button>
@@ -241,74 +398,84 @@ export const GetTransfers = () => {
             </div>
           )}
 
-          {!isLoading && !error && contractAddress && (
+          {!isLoading && !error && walletAddress && transfers.length === 0 && (
+            <div className="alert alert-info">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                className="stroke-current shrink-0 w-6 h-6"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <span>
+                No token transfers found for this wallet on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name} in
+                the last {age} days. Try another wallet address or network.
+              </span>
+            </div>
+          )}
+
+          {!isLoading && !error && walletAddress && transfers.length > 0 && (
             <div className="card bg-base-100 shadow-xl">
               <div className="card-body">
-                <h2 className="card-title mb-4">
-                  Token Transfers on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}
-                </h2>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="card-title">
+                    Token Transfers on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}
+                  </h2>
+                  <div className="flex items-center gap-2">
+                    <button className="btn btn-sm btn-outline" onClick={prevPage} disabled={page <= 1}>
+                      Previous
+                    </button>
+                    <span className="text-sm">
+                      Page {page} of {totalPages}
+                    </span>
+                    <button className="btn btn-sm btn-outline" onClick={nextPage} disabled={page >= totalPages}>
+                      Next
+                    </button>
+                  </div>
+                </div>
                 <div className="flex flex-col gap-2">
-                  {transfers && transfers.length > 0 ? (
-                    transfers.map((transfer, index) => (
-                      <div key={`${transfer.transaction_id}-${index}`} className="card bg-base-200 shadow-sm">
-                        <div className="card-body p-4">
-                          <div className="flex flex-col">
-                            <div className="text-lg font-semibold">{transfer.symbol}</div>
-                            <div className="flex justify-between items-center">
-                              <div className="text-sm opacity-70">
-                                From: <Address address={transfer.from} />
-                              </div>
-                              <div className="text-sm opacity-70">
-                                To: <Address address={transfer.to} />
-                              </div>
+                  {transfers.map((transfer, index) => (
+                    <div key={`${getTxId(transfer)}-${index}`} className="card bg-base-200 shadow-sm">
+                      <div className="card-body p-4">
+                        <div className="flex flex-col">
+                          <div className="text-lg font-semibold">{getSymbol(transfer) || "Token Transfer"}</div>
+                          <div className="flex justify-between items-center">
+                            <div className="text-sm opacity-70">
+                              From: <Address address={getFromAddress(transfer)} />
                             </div>
-                            <div className="text-xl">
-                              {(Number(transfer.amount) / Math.pow(10, transfer.decimals)).toFixed(6)} {transfer.symbol}
+                            <div className="text-sm opacity-70">
+                              To: <Address address={getToAddress(transfer)} />
                             </div>
-                            {transfer.value_usd && (
-                              <div className="text-sm text-success">${transfer.value_usd.toFixed(2)}</div>
-                            )}
-                            <div className="text-xs opacity-70">
-                              Date:{" "}
-                              {transfer.timestamp
-                                ? new Date(transfer.timestamp * 1000).toLocaleString()
-                                : estimateDateFromBlock(transfer.block_num, transfer.network_id).toLocaleString()}
-                            </div>
-                            <div className="text-xs opacity-70">
-                              <a
-                                href={`https://etherscan.io/tx/${transfer.transaction_id}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="link link-primary"
-                              >
-                                View Transaction
-                              </a>
-                            </div>
+                          </div>
+                          <div className="text-xl">
+                            {getAmount(transfer)} {getSymbol(transfer)}
+                          </div>
+                          {transfer.value_usd && (
+                            <div className="text-sm text-success">${transfer.value_usd.toFixed(2)}</div>
+                          )}
+                          <div className="text-xs opacity-70">
+                            Date: {new Date(getTimestamp(transfer) * 1000).toLocaleString()}
+                          </div>
+                          <div className="text-xs opacity-70">
+                            <a
+                              href={`https://etherscan.io/tx/${getTxId(transfer)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="link link-primary"
+                            >
+                              View Transaction
+                            </a>
                           </div>
                         </div>
                       </div>
-                    ))
-                  ) : (
-                    <div className="alert alert-info">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        className="stroke-current shrink-0 w-6 h-6"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                      <span>
-                        No token transfers found for this address on{" "}
-                        {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name} in the last {age} days
-                      </span>
                     </div>
-                  )}
+                  ))}
                 </div>
               </div>
             </div>

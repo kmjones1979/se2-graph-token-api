@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { HistoricalBalance, TokenBalanceHistory, useHistoricalBalances } from "../_hooks/useHistoricalBalances";
+import { NetworkId } from "../_hooks/useTokenApi";
 import { Address, AddressInput } from "~~/components/scaffold-eth";
 
 // Define supported EVM networks
@@ -38,8 +40,8 @@ const TIME_SPANS = [
   { id: "1y", name: "Last Year", seconds: 31536000 },
 ];
 
-// Define TypeScript interfaces for the historical balances API response
-interface HistoricalBalance {
+// Adapter interface for API response
+interface HistoricalBalanceItem {
   datetime: string;
   contract: string;
   name: string;
@@ -52,7 +54,7 @@ interface HistoricalBalance {
 }
 
 interface ApiResponse {
-  data: HistoricalBalance[];
+  data: HistoricalBalanceItem[];
   statistics: {
     bytes_read: number;
     rows_read: number;
@@ -68,10 +70,10 @@ interface ApiResponse {
   total_results?: number;
 }
 
-export const GetHistorical = () => {
+export const GetHistorical = ({ isOpen = true }: { isOpen?: boolean }) => {
   // State for search parameters
   const [walletAddress, setWalletAddress] = useState<string>("");
-  const [selectedNetwork, setSelectedNetwork] = useState<string>("mainnet");
+  const [selectedNetwork, setSelectedNetwork] = useState<NetworkId>("mainnet");
   const [selectedInterval, setSelectedInterval] = useState<string>("1d");
   const [selectedTimeSpan, setSelectedTimeSpan] = useState<string>("30d");
   const [contractFilter, setContractFilter] = useState<string>("");
@@ -80,14 +82,28 @@ export const GetHistorical = () => {
   const [useMinimalParams, setUseMinimalParams] = useState<boolean>(true);
 
   // State for API results
-  const [historicalBalances, setHistoricalBalances] = useState<HistoricalBalance[]>([]);
+  const [historicalBalances, setHistoricalBalances] = useState<HistoricalBalanceItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [totalPages, setTotalPages] = useState<number>(1);
 
+  // Use the hook to get types but skip automatic fetching
+  const {
+    data,
+    isLoading: hookLoading,
+    error: hookError,
+  } = useHistoricalBalances(
+    walletAddress,
+    {
+      network_id: selectedNetwork,
+      contract_address: contractFilter || undefined,
+    },
+    { skip: true }, // Skip initial fetch until explicitly triggered
+  );
+
   // Handle network change
   const handleNetworkChange = (newNetwork: string) => {
-    setSelectedNetwork(newNetwork);
+    setSelectedNetwork(newNetwork as NetworkId);
     setHistoricalBalances([]);
     setError(null);
     setPage(1);
@@ -126,44 +142,43 @@ export const GetHistorical = () => {
 
     setIsLoading(true);
     setError(null);
+    setHistoricalBalances([]);
 
     try {
-      // Use the token-proxy API route
-      const url = new URL("/api/token-proxy", window.location.origin);
+      // Ensure the address has 0x prefix
+      const formattedAddress = walletAddress.startsWith("0x") ? walletAddress : `0x${walletAddress}`;
 
-      // Add the essential path parameter
-      url.searchParams.append("path", `historical/balances/evm/${walletAddress}`);
+      // Define the API endpoint
+      const endpoint = `historical/balances/evm/${formattedAddress}`;
 
-      // Add network_id as it's typically required
-      url.searchParams.append("network_id", selectedNetwork);
+      // Create query parameters
+      const queryParams = new URLSearchParams();
+      queryParams.append("path", endpoint);
+      queryParams.append("network_id", selectedNetwork);
 
       // Only add additional parameters if not using minimal params mode
       if (!useMinimalParams) {
         const { startTime, endTime } = getTimeRange();
-        url.searchParams.append("interval", selectedInterval);
-        url.searchParams.append("startTime", startTime.toString());
-        url.searchParams.append("endTime", endTime.toString());
-        url.searchParams.append("limit", limit.toString());
-        url.searchParams.append("page", page.toString());
+        queryParams.append("interval", selectedInterval);
+        queryParams.append("startTime", startTime.toString());
+        queryParams.append("endTime", endTime.toString());
+        queryParams.append("limit", limit.toString());
+        queryParams.append("page", page.toString());
 
         // Add contract filter if provided
         if (contractFilter) {
-          url.searchParams.append("contracts", contractFilter);
+          queryParams.append("contracts", contractFilter);
         }
       }
 
-      console.log(`🌐 Making API request via proxy: ${url.toString()}`);
+      const fullUrl = `/api/token-proxy?${queryParams.toString()}`;
+
+      console.log(`🌐 Making API request via proxy: ${fullUrl}`);
       console.log(`🔑 Using network: ${selectedNetwork}`);
       console.log(`🔧 Mode: ${useMinimalParams ? "Minimal parameters" : "Full parameters"}`);
 
-      const response = await fetch(url.toString(), {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        cache: "no-store", // Disable caching
-      });
+      const response = await fetch(fullUrl);
+      console.log("🔍 API response status:", response.status);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -172,28 +187,46 @@ export const GetHistorical = () => {
       }
 
       const data: ApiResponse = await response.json();
+      console.log("🔍 API response data:", data);
 
-      // Detailed response logging
-      console.log("📊 Full API Response:", JSON.stringify(data, null, 2));
-      console.log(`📈 Response Statistics:
-        - Number of Historical Balances: ${data.data?.length || 0}
-        - Network: ${selectedNetwork}
-        - Interval: ${selectedInterval}
-      `);
+      // Process the response
+      if (data.data && Array.isArray(data.data)) {
+        console.log(`📊 Setting historical balances from data.data, count: ${data.data.length}`);
+        setHistoricalBalances(data.data);
+      } else if (Array.isArray(data)) {
+        console.log(`📊 Setting historical balances from array data, count: ${data.length}`);
 
-      setHistoricalBalances(data.data || []);
+        // Map to the expected format if necessary
+        const mappedData = data.map((item: any) => ({
+          datetime: item.datetime || new Date(item.timestamp * 1000).toISOString(),
+          contract: item.contract_address || item.contract || "",
+          name: item.token_name || item.name || "Unknown",
+          symbol: item.token_symbol || item.symbol || "?",
+          decimals: item.token_decimals?.toString() || "18",
+          open: parseFloat(item.open || item.balance || "0"),
+          high: parseFloat(item.high || item.balance || "0"),
+          low: parseFloat(item.low || item.balance || "0"),
+          close: parseFloat(item.close || item.balance || "0"),
+        }));
+
+        setHistoricalBalances(mappedData);
+      } else {
+        console.log("⚠️ No historical balances found in response");
+        setHistoricalBalances([]);
+      }
 
       // Update pagination info if available
       if (data.pagination) {
-        setTotalPages(data.pagination.total_pages);
-      } else if (data.total_results) {
+        setTotalPages(data.pagination.total_pages || 1);
+      } else if (data.results && data.total_results) {
         setTotalPages(Math.ceil(data.total_results / limit));
+      } else {
+        setTotalPages(1);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "An error occurred";
       console.error("❌ Error fetching historical balances:", err);
       setError(errorMessage);
-      setHistoricalBalances([]);
     } finally {
       setIsLoading(false);
     }
@@ -229,7 +262,7 @@ export const GetHistorical = () => {
   };
 
   return (
-    <details className="collapse bg-base-200 shadow-lg" open>
+    <details className="collapse bg-blue-500/20 shadow-lg mb-4 rounded-xl border border-blue-500/30" open={isOpen}>
       <summary className="collapse-title text-xl font-bold cursor-pointer hover:bg-base-300">
         <div className="flex justify-between items-center">
           <span>📈 Historical Balances - Track token balance changes over time</span>

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { NetworkId } from "../_hooks/useTokenApi";
+import { TokenMetadata, useTokenMetadata } from "../_hooks/useTokenMetadata";
 import { AddressInput } from "~~/components/scaffold-eth";
 
 // Define supported EVM networks
@@ -16,30 +18,28 @@ const EVM_NETWORKS: EVMNetwork[] = [
   { id: "arbitrum-one", name: "Arbitrum" },
   { id: "bsc", name: "BSC" },
   { id: "optimism", name: "Optimism" },
+  { id: "matic", name: "Polygon" },
 ];
 
-// Define TypeScript interfaces for the metadata API response
-interface TokenMetadata {
-  date: string;
-  timestamp: string;
-  block_num: number;
-  address: string;
-  decimals: number;
-  symbol: string;
-  name: string;
-  network_id: string;
-  circulating_supply: string;
-  holders: number;
+// Extended token metadata interface for our component
+interface TokenMetadataResponse extends TokenMetadata {
+  date?: string;
+  timestamp?: string;
+  block_num?: number;
+  address?: string;
+  network_id?: string;
+  circulating_supply?: string;
+  holders?: number;
   icon?: {
-    web3icon: string;
+    web3icon?: string;
   };
   price_usd?: number;
   market_cap?: number;
 }
 
 interface ApiResponse {
-  data: TokenMetadata[];
-  statistics: {
+  data?: TokenMetadataResponse[];
+  statistics?: {
     bytes_read: number;
     rows_read: number;
     elapsed: number;
@@ -56,6 +56,7 @@ const estimateDateFromBlock = (blockNum: number, networkId: string): Date => {
       base: 10000000, // Base
       bsc: 34000000, // BSC
       optimism: 110000000, // Optimism
+      matic: 50000000, // Polygon
     }[networkId] || 19200000;
 
   // Average block time in seconds for different networks
@@ -66,6 +67,7 @@ const estimateDateFromBlock = (blockNum: number, networkId: string): Date => {
       base: 2,
       bsc: 3,
       optimism: 2,
+      matic: 2.5,
     }[networkId] || 12;
 
   // Calculate seconds since the block
@@ -78,16 +80,40 @@ const estimateDateFromBlock = (blockNum: number, networkId: string): Date => {
   return estimatedDate > now ? now : estimatedDate;
 };
 
-export const GetMetadata = () => {
+export const GetMetadata = ({ isOpen = true }: { isOpen?: boolean }) => {
   const [contractAddress, setContractAddress] = useState<string>("");
-  const [selectedNetwork, setSelectedNetwork] = useState<string>("mainnet");
-  const [metadata, setMetadata] = useState<TokenMetadata | null>(null);
+  const [selectedNetwork, setSelectedNetwork] = useState<NetworkId>("mainnet");
+  const [metadata, setMetadata] = useState<TokenMetadataResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Use the hook to get types but skip automatic fetching
+  const {
+    data,
+    isLoading: hookLoading,
+    error: hookError,
+  } = useTokenMetadata(
+    contractAddress,
+    {
+      network_id: selectedNetwork,
+      include_market_data: true,
+    },
+    { skip: true }, // Skip initial fetch until explicitly triggered
+  );
+
+  // Example token addresses for testing
+  const exampleTokens = {
+    mainnet: "0xc944E90C64B2c07662A292be6244BDf05Cda44a7", // GRT Token
+    "arbitrum-one": "0x912CE59144191C1204E64559FE8253a0e49E6548", // ARB Token
+    base: "0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22", // cbETH
+    bsc: "0x55d398326f99059fF775485246999027B3197955", // BSC-USD
+    optimism: "0x4200000000000000000000000000000000000042", // OP Token
+    matic: "0x0000000000000000000000000000000000001010", // MATIC
+  };
+
   // Handle network change
   const handleNetworkChange = (newNetwork: string) => {
-    setSelectedNetwork(newNetwork);
+    setSelectedNetwork(newNetwork as NetworkId);
     setMetadata(null);
     setError(null);
   };
@@ -98,44 +124,83 @@ export const GetMetadata = () => {
       return;
     }
 
+    // Basic validation for Ethereum address format
+    if (!/^0x[a-fA-F0-9]{40}$/.test(contractAddress)) {
+      setError("Please enter a valid ERC20 contract address");
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
     try {
-      // Use the token-proxy API route
-      const url = new URL("/api/token-proxy", window.location.origin);
+      // Ensure the address has 0x prefix
+      const formattedAddress = contractAddress.startsWith("0x") ? contractAddress : `0x${contractAddress}`;
 
-      // Add the path and query parameters
-      url.searchParams.append("path", `tokens/evm/${contractAddress}`);
-      url.searchParams.append("network_id", selectedNetwork);
+      // Define the API endpoint
+      const endpoint = `tokens/evm/${formattedAddress}`;
+      console.log("🔍 API endpoint:", endpoint);
 
-      console.log(`🌐 Making API request via proxy: ${url.toString()}`);
+      // Build the query parameters
+      const queryParams = new URLSearchParams();
+      queryParams.append("path", endpoint);
+      queryParams.append("network_id", selectedNetwork);
+      queryParams.append("include_market_data", "true");
+
+      // Call the API directly
+      const fullUrl = `/api/token-proxy?${queryParams.toString()}`;
+      console.log("🔍 Making direct API request to:", fullUrl);
       console.log(`🔑 Using network: ${selectedNetwork}`);
+      console.log(`📝 Contract Address: ${contractAddress}`);
 
-      const response = await fetch(url.toString(), {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        cache: "no-store", // Disable caching
-      });
+      const response = await fetch(fullUrl);
+      console.log("🔍 API response status:", response.status);
+
+      // Handle 404 with custom error message
+      if (response.status === 404) {
+        const errorText = await response.text();
+        throw new Error(`No metadata found for this token contract. Please verify:
+          1. The contract address is correct
+          2. The contract is an ERC20 token
+          3. The selected network is correct (currently: ${selectedNetwork})
+          
+          Try these example tokens:
+          - Mainnet (GRT): ${exampleTokens.mainnet}
+          - Arbitrum (ARB): ${exampleTokens["arbitrum-one"]}
+          - Base (cbETH): ${exampleTokens.base}
+          - BSC (BSC-USD): ${exampleTokens.bsc}
+          - Optimism (OP): ${exampleTokens.optimism}
+          - Polygon (MATIC): ${exampleTokens.matic}`);
+      }
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("❌ API Error Response:", errorText);
+        console.error("❌ API error response:", errorText);
         throw new Error(`API request failed with status ${response.status}: ${errorText}`);
       }
 
-      const data: ApiResponse = await response.json();
+      const jsonData: ApiResponse = await response.json();
+      console.log("🔍 API response data:", jsonData);
 
-      // Detailed response logging
-      console.log("📊 Full API Response:", JSON.stringify(data, null, 2));
+      // Process the response based on format
+      if (jsonData.data && Array.isArray(jsonData.data) && jsonData.data.length > 0) {
+        console.log("📊 Setting metadata from jsonData.data[0]");
+        setMetadata(jsonData.data[0]);
+      } else if (typeof jsonData === "object" && jsonData !== null) {
+        // Handle case where the API returns the token data directly
+        console.log("📊 Setting metadata from direct object response");
 
-      if (data.data && data.data.length > 0) {
-        setMetadata(data.data[0]);
+        // Check if it has token metadata properties
+        if ("name" in jsonData || "symbol" in jsonData || "decimals" in jsonData) {
+          setMetadata(jsonData as TokenMetadataResponse);
+        } else {
+          console.error("❌ Unexpected response format:", jsonData);
+          throw new Error("Unexpected response format. No token metadata found.");
+        }
       } else {
-        setError("No metadata found for this token");
+        console.log("⚠️ No token metadata found in response or unexpected format");
+        setMetadata(null);
+        throw new Error("No metadata found for this token contract");
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "An error occurred";
@@ -159,7 +224,7 @@ export const GetMetadata = () => {
   };
 
   return (
-    <details className="collapse bg-base-200 shadow-lg" open>
+    <details className="collapse bg-blue-500/20 shadow-lg mb-4 rounded-xl border border-blue-500/30" open={isOpen}>
       <summary className="collapse-title text-xl font-bold cursor-pointer hover:bg-base-300">
         <div className="flex justify-between items-center">
           <span>🔍 Token Metadata - Get detailed information about any ERC20 token</span>
@@ -194,6 +259,9 @@ export const GetMetadata = () => {
                     onChange={setContractAddress}
                     placeholder="Enter token contract address"
                   />
+                  <div className="mt-2 text-sm opacity-70">
+                    Example for {selectedNetwork}: {exampleTokens[selectedNetwork as keyof typeof exampleTokens]}
+                  </div>
                 </div>
                 <div className="w-full">
                   <label className="label">
@@ -259,6 +327,11 @@ export const GetMetadata = () => {
                       <span className="text-2xl">{metadata.icon.web3icon}</span>
                     </div>
                   )}
+                  {metadata.logo_url && (
+                    <div className="w-12 h-12 rounded-full bg-base-200 flex items-center justify-center flex-shrink-0">
+                      <img src={metadata.logo_url} alt="Token logo" className="w-10 h-10 rounded-full" />
+                    </div>
+                  )}
                   <div className="flex-grow min-w-0">
                     <h2 className="card-title text-2xl">{metadata.name}</h2>
                     <p className="text-lg opacity-70">{metadata.symbol}</p>
@@ -268,40 +341,63 @@ export const GetMetadata = () => {
                 <div className="grid grid-cols-1 gap-4">
                   <div className="stat bg-base-200 rounded-box p-4">
                     <div className="stat-title">Contract Address</div>
-                    <div className="stat-value text-base break-all font-mono">{metadata.address}</div>
+                    <div className="stat-value text-base break-all font-mono">
+                      {metadata.contract_address || metadata.address}
+                    </div>
                   </div>
 
                   <div className="stat bg-base-200 rounded-box p-4">
                     <div className="stat-title">Network</div>
-                    <div className="stat-value">{EVM_NETWORKS.find(n => n.id === metadata.network_id)?.name}</div>
+                    <div className="stat-value">
+                      {EVM_NETWORKS.find(n => n.id === (metadata.network_id || selectedNetwork))?.name}
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="stat bg-base-200 rounded-box p-4">
                       <div className="stat-title">Circulating Supply</div>
                       <div className="stat-value text-primary text-2xl sm:text-3xl break-all">
-                        {formatSupply(metadata.circulating_supply, metadata.decimals)}
+                        {formatSupply(metadata.circulating_supply || metadata.total_supply || "0", metadata.decimals)}
                       </div>
                       <div className="stat-desc">Decimals: {metadata.decimals}</div>
                     </div>
 
                     <div className="stat bg-base-200 rounded-box p-4">
                       <div className="stat-title">Total Holders</div>
-                      <div className="stat-value text-secondary">{formatNumber(metadata.holders)}</div>
+                      <div className="stat-value text-secondary">{formatNumber(metadata.holders || 0)}</div>
                     </div>
 
-                    {metadata.price_usd && (
+                    {(metadata.market_data?.price_usd || metadata.price_usd) && (
                       <div className="stat bg-base-200 rounded-box p-4">
                         <div className="stat-title">Price (USD)</div>
-                        <div className="stat-value">${metadata.price_usd.toFixed(4)}</div>
+                        <div className="stat-value">
+                          ${(metadata.market_data?.price_usd || metadata.price_usd || 0).toFixed(4)}
+                        </div>
+                        {metadata.market_data?.price_change_percentage_24h && (
+                          <div
+                            className={`stat-desc ${metadata.market_data.price_change_percentage_24h >= 0 ? "text-success" : "text-error"}`}
+                          >
+                            {metadata.market_data.price_change_percentage_24h >= 0 ? "↗︎" : "↘︎"}
+                            {metadata.market_data.price_change_percentage_24h.toFixed(2)}% (24h)
+                          </div>
+                        )}
                       </div>
                     )}
 
-                    {metadata.market_cap && (
+                    {(metadata.market_data?.market_cap || metadata.market_cap) && (
                       <div className="stat bg-base-200 rounded-box p-4">
                         <div className="stat-title">Market Cap (USD)</div>
                         <div className="stat-value text-2xl sm:text-3xl break-all">
-                          ${formatNumber(metadata.market_cap.toFixed(2))}
+                          ${formatNumber((metadata.market_data?.market_cap || metadata.market_cap || 0).toFixed(2))}
+                        </div>
+                      </div>
+                    )}
+
+                    {metadata.market_data?.total_volume_24h && (
+                      <div className="stat bg-base-200 rounded-box p-4">
+                        <div className="stat-title">24h Volume (USD)</div>
+                        <div className="stat-value">
+                          ${formatNumber(metadata.market_data.total_volume_24h.toFixed(2))}
                         </div>
                       </div>
                     )}
@@ -309,11 +405,18 @@ export const GetMetadata = () => {
                     <div className="stat bg-base-200 rounded-box p-4">
                       <div className="stat-title">Last Updated</div>
                       <div className="stat-value text-base">
-                        {metadata.timestamp
-                          ? new Date(metadata.timestamp.replace(" ", "T")).toLocaleString()
-                          : estimateDateFromBlock(metadata.block_num, metadata.network_id).toLocaleString()}
+                        {metadata.block_timestamp
+                          ? new Date(metadata.block_timestamp * 1000).toLocaleString()
+                          : metadata.timestamp
+                            ? new Date(metadata.timestamp.replace(" ", "T")).toLocaleString()
+                            : metadata.block_number || metadata.block_num
+                              ? estimateDateFromBlock(
+                                  metadata.block_number || metadata.block_num || 0,
+                                  metadata.network_id || selectedNetwork,
+                                ).toLocaleString()
+                              : new Date().toLocaleString()}
                       </div>
-                      <div className="stat-desc">Block: {metadata.block_num}</div>
+                      <div className="stat-desc">Block: {metadata.block_number || metadata.block_num || "Unknown"}</div>
                     </div>
                   </div>
                 </div>

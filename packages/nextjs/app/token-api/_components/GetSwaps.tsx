@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { NetworkId } from "~~/app/token-api/_hooks/useTokenApi";
+import { Swap, SwapsParams, useTokenSwaps } from "~~/app/token-api/_hooks/useTokenSwaps";
 import { Address, AddressInput } from "~~/components/scaffold-eth";
 
-// Define supported EVM networks
+// Define supported EVM networks that match the NetworkId type
 interface EVMNetwork {
-  id: string;
+  id: NetworkId;
   name: string;
   icon?: string;
 }
@@ -14,7 +16,7 @@ const EVM_NETWORKS: EVMNetwork[] = [
   { id: "mainnet", name: "Ethereum" },
   { id: "base", name: "Base" },
   { id: "arbitrum-one", name: "Arbitrum" },
-  { id: "bsc", name: "BSC" },
+  { id: "bsc", name: "BNB Smart Chain" },
   { id: "optimism", name: "Optimism" },
   { id: "matic", name: "Polygon" },
   { id: "unichain", name: "Unichain" },
@@ -26,134 +28,114 @@ const PROTOCOLS = [
   { id: "uniswap_v3", name: "Uniswap V3" },
 ];
 
-// Define TypeScript interfaces for the swaps API response
-interface SwapEvent {
-  block_num: number;
-  datetime: string;
-  network_id: string;
-  transaction_id: string;
-  caller: string;
-  sender: string;
-  recipient: string;
-  factory: string;
-  pool: string;
-  amount0: string;
-  amount1: string;
-  price0: number;
-  price1: number;
-  protocol: string;
-}
-
-interface ApiResponse {
-  data: SwapEvent[];
-  statistics: {
-    bytes_read: number;
-    rows_read: number;
-    elapsed: number;
-  };
-}
-
-export const GetSwaps = () => {
+export const GetSwaps = ({ isOpen = true }: { isOpen?: boolean }) => {
   // State for search parameters
   const [poolAddress, setPoolAddress] = useState<string>("");
   const [callerAddress, setCallerAddress] = useState<string>("");
   const [senderAddress, setSenderAddress] = useState<string>("");
   const [recipientAddress, setRecipientAddress] = useState<string>("");
   const [transactionId, setTransactionId] = useState<string>("");
-  const [selectedNetwork, setSelectedNetwork] = useState<string>("mainnet");
+  const [selectedNetwork, setSelectedNetwork] = useState<NetworkId>("mainnet");
   const [selectedProtocol, setSelectedProtocol] = useState<string>("uniswap_v3");
   const [limit, setLimit] = useState<number>(10);
   const [page, setPage] = useState<number>(1);
 
-  // State for API results
-  const [swaps, setSwaps] = useState<SwapEvent[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Combined search parameters for the hook
+  const [searchParams, setSearchParams] = useState<SwapsParams>({
+    network_id: selectedNetwork,
+    page,
+    page_size: limit,
+  });
+
+  // Skip initial API call until user clicks search
+  const [shouldFetch, setShouldFetch] = useState(false);
+
+  // Fetch data using the hook
+  const { data, isLoading, error, refetch } = useTokenSwaps(searchParams, { skip: !shouldFetch });
+
+  // Local state to store the data
+  const [swaps, setSwaps] = useState<Swap[]>([]);
+
+  // Update swaps when data is received
+  useEffect(() => {
+    console.log("Data from API:", data);
+
+    // Make sure data exists and check if it has the swap data array
+    if (data) {
+      // Debug the structure of the first swap
+      if (Array.isArray(data) && data.length > 0) {
+        console.log("First swap object structure:", JSON.stringify(data[0], null, 2));
+      }
+
+      // Set swaps from array data
+      if (Array.isArray(data)) {
+        console.log("Total swaps found (direct array):", data.length);
+        setSwaps(data);
+      }
+      // Additional fallback check
+      else {
+        console.warn("Unexpected data format:", data);
+        setSwaps([]);
+      }
+    } else if (error) {
+      console.error("❌ Error fetching swaps:", error);
+      setSwaps([]);
+    }
+  }, [data, error]);
 
   // Handle network change
   const handleNetworkChange = (newNetwork: string) => {
-    setSelectedNetwork(newNetwork);
+    setSelectedNetwork(newNetwork as NetworkId);
     setSwaps([]);
-    setError(null);
   };
 
   // Handle protocol change
   const handleProtocolChange = (newProtocol: string) => {
     setSelectedProtocol(newProtocol);
     setSwaps([]);
-    setError(null);
   };
 
   const fetchSwaps = async () => {
-    // Remove the validation check since all parameters are optional
-    setIsLoading(true);
-    setError(null);
+    // Update search parameters
+    const params: SwapsParams = {
+      network_id: selectedNetwork,
+      page,
+      page_size: limit,
+    };
 
-    try {
-      // Use the token-proxy API route
-      const url = new URL("/api/token-proxy", window.location.origin);
+    // Add optional parameters if provided
+    if (poolAddress) params.pool_address = poolAddress;
+    if (callerAddress) params.caller = callerAddress;
+    if (senderAddress) params.sender = senderAddress;
+    if (recipientAddress) params.recipient = recipientAddress;
+    if (transactionId) params.tx_hash = transactionId;
 
-      // Add the path and query parameters
-      url.searchParams.append("path", "swaps/evm");
-      url.searchParams.append("network_id", selectedNetwork);
-      url.searchParams.append("protocol", selectedProtocol);
-      url.searchParams.append("limit", limit.toString());
-      url.searchParams.append("page", page.toString());
+    // Log details
+    console.log(`🔍 Searching swaps with parameters:`, params);
+    console.log(`🔑 Using network: ${selectedNetwork}`);
+    console.log(`🔄 Using protocol: ${selectedProtocol}`);
 
-      // Add optional parameters if provided
-      if (poolAddress) url.searchParams.append("pool", poolAddress);
-      if (callerAddress) url.searchParams.append("caller", callerAddress);
-      if (senderAddress) url.searchParams.append("sender", senderAddress);
-      if (recipientAddress) url.searchParams.append("recipient", recipientAddress);
-      if (transactionId) url.searchParams.append("transaction_id", transactionId);
-
-      console.log(`🌐 Making API request via proxy: ${url.toString()}`);
-      console.log(`🔑 Using network: ${selectedNetwork}`);
-      console.log(`🔄 Using protocol: ${selectedProtocol}`);
-
-      const response = await fetch(url.toString(), {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        cache: "no-store", // Disable caching
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("❌ API Error Response:", errorText);
-        throw new Error(`API request failed with status ${response.status}: ${errorText}`);
-      }
-
-      const data: ApiResponse = await response.json();
-
-      // Detailed response logging
-      console.log("📊 Full API Response:", JSON.stringify(data, null, 2));
-      console.log(`📈 Response Statistics:
-        - Number of Swaps: ${data.data?.length || 0}
-        - Network: ${selectedNetwork}
-        - Protocol: ${selectedProtocol}
-      `);
-
-      setSwaps(data.data || []);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "An error occurred";
-      console.error("❌ Error fetching swaps:", err);
-      setError(errorMessage);
-      setSwaps([]);
-    } finally {
-      setIsLoading(false);
-    }
+    // Update search params and trigger fetch
+    setSearchParams(params);
+    setShouldFetch(true);
   };
 
   // Format date
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleString();
+  const formatDate = (dateStr?: string | number) => {
+    if (!dateStr) return "No timestamp";
+
+    if (typeof dateStr === "number") {
+      return new Date(dateStr * 1000).toLocaleString();
+    } else {
+      return new Date(dateStr).toLocaleString();
+    }
   };
 
   // Format amount with token decimals (this is a simplification as we don't know the decimals)
-  const formatAmount = (amount: string) => {
+  const formatAmount = (amount?: string) => {
+    // Handle undefined or null amount
+    if (!amount) return "No amount";
+
     // The amount might be positive or negative
     const isNegative = amount.startsWith("-");
     const absoluteAmount = isNegative ? amount.substring(1) : amount;
@@ -171,6 +153,8 @@ export const GetSwaps = () => {
 
   // Generate block explorer URL for transaction
   const getExplorerUrl = (txId: string, networkId: string) => {
+    if (!txId) return "#";
+
     const explorerBaseUrls: { [key: string]: string } = {
       mainnet: "https://etherscan.io",
       base: "https://basescan.org",
@@ -186,21 +170,41 @@ export const GetSwaps = () => {
 
   // Handle pagination
   const goToNextPage = () => {
-    setPage(prevPage => prevPage + 1);
-    // Refetch data with the new page
-    setTimeout(fetchSwaps, 0);
+    const newPage = page + 1;
+    setPage(newPage);
+
+    // Update params and refetch
+    setSearchParams(prev => ({
+      ...prev,
+      page: newPage,
+    }));
+
+    // Refetch with updated params
+    if (shouldFetch) {
+      setTimeout(refetch, 0);
+    }
   };
 
   const goToPrevPage = () => {
     if (page > 1) {
-      setPage(prevPage => prevPage - 1);
-      // Refetch data with the new page
-      setTimeout(fetchSwaps, 0);
+      const newPage = page - 1;
+      setPage(newPage);
+
+      // Update params and refetch
+      setSearchParams(prev => ({
+        ...prev,
+        page: newPage,
+      }));
+
+      // Refetch with updated params
+      if (shouldFetch) {
+        setTimeout(refetch, 0);
+      }
     }
   };
 
   return (
-    <details className="collapse bg-base-200 shadow-lg" open>
+    <details className="collapse bg-blue-500/20 shadow-lg mb-4 rounded-xl border border-blue-500/30" open={isOpen}>
       <summary className="collapse-title text-xl font-bold cursor-pointer hover:bg-base-300">
         <div className="flex justify-between items-center">
           <span>💱 DEX Swaps - Explore token swap events across protocols</span>
@@ -397,39 +401,62 @@ export const GetSwaps = () => {
                   <table className="table table-zebra w-full">
                     <thead>
                       <tr>
-                        <th>Transaction</th>
-                        <th>Pool</th>
-                        <th>Time</th>
-                        <th>Amount0</th>
-                        <th>Amount1</th>
-                        <th>Caller</th>
+                        <th className="w-[15%]">Transaction</th>
+                        <th className="w-[15%]">Pool</th>
+                        <th className="w-[15%]">Time</th>
+                        <th className="w-[20%]">Token 0</th>
+                        <th className="w-[20%]">Token 1</th>
+                        <th className="w-[15%]">Addresses</th>
                       </tr>
                     </thead>
                     <tbody>
                       {swaps.map((swap, index) => (
-                        <tr key={`${swap.transaction_id}-${index}`}>
+                        <tr key={index}>
                           <td>
                             <a
-                              href={getExplorerUrl(swap.transaction_id, swap.network_id)}
+                              href={getExplorerUrl(swap.transaction_id || "", selectedNetwork)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="link link-hover link-primary"
                             >
-                              {swap.transaction_id.substring(0, 10)}...
+                              {swap.transaction_id ? `${swap.transaction_id.substring(0, 10)}...` : "No transaction"}
                             </a>
                           </td>
+                          <td>{swap.pool ? <Address address={swap.pool} /> : "No pool"}</td>
+                          <td>{swap.datetime ? formatDate(swap.datetime) : "No timestamp"}</td>
                           <td>
-                            <Address address={swap.pool} />
-                          </td>
-                          <td>{formatDate(swap.datetime)}</td>
-                          <td className={Number(swap.amount0) >= 0 ? "text-success" : "text-error"}>
-                            {formatAmount(swap.amount0)}
-                          </td>
-                          <td className={Number(swap.amount1) >= 0 ? "text-success" : "text-error"}>
-                            {formatAmount(swap.amount1)}
+                            <div className="flex flex-col">
+                              <span>{formatAmount(swap.amount0)}</span>
+                              <span className="text-xs text-opacity-70">
+                                {swap.token0_symbol || swap.token0 || "Token 0"}
+                              </span>
+                              {swap.amount0_usd && (
+                                <span className="text-xs text-success">${Number(swap.amount0_usd).toFixed(2)}</span>
+                              )}
+                            </div>
                           </td>
                           <td>
-                            <Address address={swap.caller} />
+                            <div className="flex flex-col">
+                              <span>{formatAmount(swap.amount1)}</span>
+                              <span className="text-xs text-opacity-70">
+                                {swap.token1_symbol || swap.token1 || "Token 1"}
+                              </span>
+                              {swap.amount1_usd && (
+                                <span className="text-xs text-success">${Number(swap.amount1_usd).toFixed(2)}</span>
+                              )}
+                            </div>
+                          </td>
+                          <td>
+                            <div className="flex flex-col gap-1">
+                              <div className="text-xs">
+                                <span className="opacity-70">From:</span>{" "}
+                                {swap.sender ? <Address address={swap.sender} /> : "Unknown"}
+                              </div>
+                              <div className="text-xs">
+                                <span className="opacity-70">To:</span>{" "}
+                                {swap.recipient ? <Address address={swap.recipient} /> : "Unknown"}
+                              </div>
+                            </div>
                           </td>
                         </tr>
                       ))}

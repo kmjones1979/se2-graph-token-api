@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Get the API URL from the environment variables or use the default
-const API_URL = process.env.NEXT_PUBLIC_GRAPH_API_URL || "https://token-api.thegraph.com";
+// Get the API URL from the environment variables or use the correct stage URL
+const API_URL = process.env.NEXT_PUBLIC_GRAPH_API_URL || "https://token-api.service.stage.pinax.network";
 
 /**
  * Proxy API Handler for Token API requests
@@ -39,6 +39,8 @@ export async function GET(request: NextRequest) {
 
     if (process.env.NEXT_PUBLIC_GRAPH_TOKEN) {
       headers["Authorization"] = `Bearer ${process.env.NEXT_PUBLIC_GRAPH_TOKEN}`;
+    } else {
+      console.warn("⚠️ No API token found in environment variables. API calls may fail due to authentication issues.");
     }
 
     // Make the API request
@@ -48,8 +50,18 @@ export async function GET(request: NextRequest) {
       cache: "no-store", // Disable caching
     });
 
+    // Log the raw response for debugging
+    console.log(`📡 API Response Status: ${response.status}`);
+
     // Forward response status and body
-    const data = await response.json();
+    let data;
+    try {
+      data = await response.json();
+    } catch (e) {
+      const text = await response.text();
+      console.error("Failed to parse response as JSON:", text);
+      return NextResponse.json({ error: "Failed to parse API response" }, { status: 500 });
+    }
 
     // Return the response
     return NextResponse.json(data, { status: response.status });
