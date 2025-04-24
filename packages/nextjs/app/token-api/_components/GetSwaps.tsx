@@ -101,10 +101,11 @@ export const GetSwaps = ({ isOpen = true }: { isOpen?: boolean }) => {
       network_id: selectedNetwork,
       page,
       page_size: limit,
+      protocol: selectedProtocol,
     };
 
     // Add optional parameters if provided
-    if (poolAddress) params.pool_address = poolAddress;
+    if (poolAddress) params.pool = poolAddress;
     if (callerAddress) params.caller = callerAddress;
     if (senderAddress) params.sender = senderAddress;
     if (recipientAddress) params.recipient = recipientAddress;
@@ -238,7 +239,7 @@ export const GetSwaps = ({ isOpen = true }: { isOpen?: boolean }) => {
                     <AddressInput
                       value={poolAddress}
                       onChange={setPoolAddress}
-                      placeholder="Enter pool contract address"
+                      placeholder="e.g. 0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640 (ETH/USDC)"
                     />
                   </div>
                   <div className="w-full">

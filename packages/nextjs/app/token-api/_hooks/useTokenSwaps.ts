@@ -42,11 +42,12 @@ export interface SwapsResponse {
  */
 export interface SwapsParams {
   network_id: NetworkId;
-  pool_address?: string;
+  pool?: string;
   caller?: string;
   sender?: string;
   recipient?: string;
   tx_hash?: string;
+  protocol?: string;
   page?: number;
   page_size?: number;
 }
