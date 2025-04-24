@@ -33,13 +33,6 @@ A modern, responsive web application built with Next.js that interacts with [The
 -   [Component Features](#-component-features)
 -   [Error Handling Examples](#-error-handling-examples)
 -   [Hook Documentation](#-hook-documentation)
-    -   [useScaffoldReadContract](#usescaffoldreadcontract)
-    -   [useScaffoldWriteContract](#usescaffoldwritecontract)
-    -   [useScaffoldWatchContractEvent](#usescaffoldwatchcontractevent)
-    -   [useScaffoldEventHistory](#usescaffoldeventhistory)
-    -   [useDeployedContractInfo](#usedeployedcontractinfo)
-    -   [useScaffoldContract](#usescaffoldcontract)
-    -   [useTransactor](#usetransactor)
 -   [Component Documentation](#-component-documentation)
     -   [Address Component](#address-component)
     -   [AddressInput Component](#addressinput-component)
@@ -127,6 +120,12 @@ export default function YourComponent() {
     return (
         <div>
             <GetHolders />
+            {/* With custom parameters */}
+            <GetHolders
+                initialContractAddress="0xc944E90C64B2c07662A292be6244BDf05Cda44a7"
+                initialNetwork="mainnet"
+                isOpen={true}
+            />
         </div>
     );
 }
@@ -144,6 +143,12 @@ export default function YourComponent() {
     return (
         <div>
             <GetTransfers />
+            {/* With custom parameters */}
+            <GetTransfers
+                initialAddress="0x1234..."
+                initialNetwork="base"
+                isOpen={true}
+            />
         </div>
     );
 }
@@ -161,6 +166,12 @@ export default function YourComponent() {
     return (
         <div>
             <GetMetadata />
+            {/* With custom parameters */}
+            <GetMetadata
+                initialContractAddress="0x4200000000000000000000000000000000000042"
+                initialNetwork="optimism"
+                isOpen={true}
+            />
         </div>
     );
 }
@@ -178,6 +189,12 @@ export default function YourComponent() {
     return (
         <div>
             <GetBalances />
+            {/* With custom parameters */}
+            <GetBalances
+                initialAddress="0x1234..."
+                initialNetwork="arbitrum-one"
+                isOpen={true}
+            />
         </div>
     );
 }
@@ -195,6 +212,12 @@ export default function YourComponent() {
     return (
         <div>
             <GetHistorical />
+            {/* With custom parameters */}
+            <GetHistorical
+                initialAddress="0x1234..."
+                initialNetwork="mainnet"
+                isOpen={true}
+            />
         </div>
     );
 }
@@ -212,6 +235,12 @@ export default function YourComponent() {
     return (
         <div>
             <GetOHLCByPool />
+            {/* With custom parameters */}
+            <GetOHLCByPool
+                initialPoolAddress="0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640"
+                initialNetwork="mainnet"
+                isOpen={true}
+            />
         </div>
     );
 }
@@ -229,6 +258,12 @@ export default function YourComponent() {
     return (
         <div>
             <GetOHLCByContract />
+            {/* With custom parameters */}
+            <GetOHLCByContract
+                initialContractAddress="0x4200000000000000000000000000000000000042"
+                initialNetwork="optimism"
+                isOpen={true}
+            />
         </div>
     );
 }
@@ -246,6 +281,27 @@ export default function YourComponent() {
     return (
         <div>
             <GetSwaps />
+            {/* With custom parameters */}
+            <GetSwaps initialNetwork="mainnet" isOpen={true} />
+        </div>
+    );
+}
+```
+
+### DEX Pools Component
+
+View liquidity pools across different networks.
+
+```typescript
+// Example usage
+import { GetPools } from "~~/app/token-api/_components/GetPools";
+
+export default function YourComponent() {
+    return (
+        <div>
+            <GetPools />
+            {/* With custom parameters */}
+            <GetPools initialNetwork="mainnet" isOpen={true} />
         </div>
     );
 }
@@ -572,6 +628,7 @@ import { GetHolders } from "~~/app/token-api/_components/GetHolders";
 <GetHolders
   initialContractAddress="0xc944E90C64B2c07662A292be6244BDf05Cda44a7"
   initialNetwork="mainnet"
+  isOpen={true}
 />
 ```
 
@@ -589,6 +646,7 @@ import { GetBalances } from "~~/app/token-api/_components/GetBalances";
 <GetBalances
   initialAddress="0x1234..."
   initialNetwork="arbitrum-one"
+  isOpen={true}
 />
 ```
 
@@ -606,6 +664,61 @@ import { GetTransfers } from "~~/app/token-api/_components/GetTransfers";
 <GetTransfers
   initialAddress="0x1234..."
   initialNetwork="base"
+  isOpen={true}
+/>
+```
+
+### GetMetadata Component
+
+Displays detailed token metadata information.
+
+```typescript
+import { GetMetadata } from "~~/app/token-api/_components/GetMetadata";
+
+// Basic usage
+<GetMetadata />
+
+// With custom contract and network
+<GetMetadata
+  initialContractAddress="0x4200000000000000000000000000000000000042"
+  initialNetwork="optimism"
+  isOpen={true}
+/>
+```
+
+### GetHistorical Component
+
+Displays historical balance data with filtering options.
+
+```typescript
+import { GetHistorical } from "~~/app/token-api/_components/GetHistorical";
+
+// Basic usage
+<GetHistorical />
+
+// With custom address and network
+<GetHistorical
+  initialAddress="0x1234..."
+  initialNetwork="mainnet"
+  isOpen={true}
+/>
+```
+
+### GetOHLCByPool Component
+
+Displays price history charts for DEX liquidity pools.
+
+```typescript
+import { GetOHLCByPool } from "~~/app/token-api/_components/GetOHLCByPool";
+
+// Basic usage
+<GetOHLCByPool />
+
+// With custom pool address and network
+<GetOHLCByPool
+  initialPoolAddress="0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640"
+  initialNetwork="mainnet"
+  isOpen={true}
 />
 ```
 
@@ -623,6 +736,41 @@ import { GetOHLCByContract } from "~~/app/token-api/_components/GetOHLCByContrac
 <GetOHLCByContract
   initialContractAddress="0x4200000000000000000000000000000000000042"
   initialNetwork="optimism"
+  isOpen={true}
+/>
+```
+
+### GetSwaps Component
+
+Displays DEX swap events with filtering options.
+
+```typescript
+import { GetSwaps } from "~~/app/token-api/_components/GetSwaps";
+
+// Basic usage
+<GetSwaps />
+
+// With custom network
+<GetSwaps
+  initialNetwork="mainnet"
+  isOpen={true}
+/>
+```
+
+### GetPools Component
+
+Displays DEX liquidity pool information.
+
+```typescript
+import { GetPools } from "~~/app/token-api/_components/GetPools";
+
+// Basic usage
+<GetPools />
+
+// With custom network
+<GetPools
+  initialNetwork="mainnet"
+  isOpen={true}
 />
 ```
 
