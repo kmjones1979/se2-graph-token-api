@@ -30,7 +30,9 @@ export const GetBalances = ({ isOpen = true }: { isOpen?: boolean }) => {
   const [page, setPage] = useState<number>(1);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  // Use the hook but skip automatic fetching until we have an address and user clicks the button
+  // We're using a direct fetch approach instead of the hook
+  // Skip the hook entirely to avoid any potential update cycles
+  /* 
   const {
     data,
     isLoading: apiLoading,
@@ -43,8 +45,9 @@ export const GetBalances = ({ isOpen = true }: { isOpen?: boolean }) => {
       page_size: pageSize,
       page: page,
     },
-    { skip: true }, // Skip initial fetch until explicitly triggered
+    { skip: true },
   );
+  */
 
   // Handle network change
   const handleNetworkChange = (newNetwork: string) => {
@@ -53,6 +56,7 @@ export const GetBalances = ({ isOpen = true }: { isOpen?: boolean }) => {
     setError(null);
   };
 
+  // Manual fetch function - ignore hook data
   const fetchBalances = async () => {
     if (!walletAddress) {
       setError("Please enter an address");
@@ -145,27 +149,6 @@ export const GetBalances = ({ isOpen = true }: { isOpen?: boolean }) => {
       setIsLoading(false); // Always reset loading state
     }
   };
-
-  // Update balances when API data changes
-  useEffect(() => {
-    if (data) {
-      console.log("📊 Received balances data from hook:", data);
-      if (Array.isArray(data)) {
-        setBalances(data);
-      } else if (typeof data === "object" && data !== null) {
-        // Check if data has a data property that's an array
-        const dataArray = (data as any).data;
-        if (Array.isArray(dataArray)) {
-          setBalances(dataArray);
-        }
-      }
-    }
-
-    if (apiError) {
-      console.error("❌ API error:", apiError);
-      setError(typeof apiError === "string" ? apiError : "Failed to fetch balances");
-    }
-  }, [data, apiError]);
 
   // Format balance value with token decimals
   const formatBalance = (balance: TokenBalance) => {

@@ -19,7 +19,11 @@ const EVM_NETWORKS: EVMNetwork[] = [
 ];
 
 // Helper function to estimate date from block number and network
-const estimateDateFromBlock = (blockNum: number, networkId: string): Date => {
+const estimateDateFromBlock = (blockNum: number | undefined, networkId: string): Date => {
+  if (blockNum === undefined) {
+    return new Date();
+  }
+
   const now = new Date();
   const blockTime = networkId === "mainnet" ? 12 : 3; // Estimated seconds per block
   // Current block estimates based on network
@@ -140,10 +144,10 @@ export const GetTransfers = ({ isOpen = true }: { isOpen?: boolean }) => {
 
   // Extract timestamp helper function
   const getTimestamp = (transfer: CombinedTransfer): number => {
-    if ((transfer as TokenTransferItem).datetime) {
+    if ((transfer as TokenTransferItem).datetime && typeof (transfer as TokenTransferItem).datetime === "string") {
       // Try to parse datetime string to timestamp
       try {
-        return new Date((transfer as TokenTransferItem).datetime).getTime() / 1000;
+        return new Date((transfer as TokenTransferItem).datetime as string).getTime() / 1000;
       } catch (e) {
         console.error("Error parsing datetime:", e);
       }

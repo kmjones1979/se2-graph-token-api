@@ -35,6 +35,7 @@ export const GetPools = ({ isOpen = true }: { isOpen?: boolean }) => {
   const [selectedNetwork, setSelectedNetwork] = useState<NetworkId>("mainnet");
   const [selectedProtocol, setSelectedProtocol] = useState<string>("uniswap_v3");
   const [symbol, setSymbol] = useState<string>("");
+  const [pools, setPools] = useState<Pool[]>([]);
 
   // Combined search parameters for the hook
   const [searchParams, setSearchParams] = useState<PoolsParams>({
@@ -49,52 +50,62 @@ export const GetPools = ({ isOpen = true }: { isOpen?: boolean }) => {
   const [shouldFetch, setShouldFetch] = useState(false);
 
   // Fetch data using the hook
-  const { data, isLoading, error, refetch } = useTokenPools(searchParams, { skip: !shouldFetch });
+  const { data, isLoading, error } = useTokenPools(shouldFetch ? searchParams : undefined, { skip: !shouldFetch });
 
-  // Local state to store the data
-  const [pools, setPools] = useState<Pool[]>([]);
-
-  // Update pools when data is received
+  // Update pools when data is received (with safeguards)
   useEffect(() => {
-    console.log("Data from API:", data);
+    if (!data) return;
 
-    // Make sure data exists and check if it has the pool data array
-    if (data) {
-      // The actual API response is a wrapper with a data property
+    try {
+      // Handle array data
       if (Array.isArray(data)) {
         console.log("Total pools found (direct array):", data.length);
         setPools(data);
       }
-      // Or it might be nested in a data property
+      // Handle nested data
       else if (data.data && Array.isArray(data.data)) {
         console.log("Total pools found (nested data):", data.data.length);
         setPools(data.data);
       }
-      // Additional fallback check
+      // Handle unexpected format
       else {
         console.warn("Unexpected data format:", data);
         setPools([]);
       }
-    } else if (error) {
+    } catch (err) {
+      console.error("Error processing pool data:", err);
+      setPools([]);
+    }
+  }, [data]);
+
+  // Handle errors
+  useEffect(() => {
+    if (error) {
       console.error("❌ Error fetching pools:", error);
       setPools([]);
     }
-  }, [data, error]);
+  }, [error]);
 
   // Handle network change
   const handleNetworkChange = (newNetwork: string) => {
     setSelectedNetwork(newNetwork as NetworkId);
-    setPools([]);
+    // Only reset pools if we've already searched
+    if (shouldFetch) {
+      setPools([]);
+    }
   };
 
   // Handle protocol change
   const handleProtocolChange = (newProtocol: string) => {
     setSelectedProtocol(newProtocol);
-    setPools([]);
+    // Only reset pools if we've already searched
+    if (shouldFetch) {
+      setPools([]);
+    }
   };
 
-  const fetchPools = async () => {
-    // Update search parameters
+  const fetchPools = () => {
+    // Create new params object
     const params: PoolsParams = {
       network_id: selectedNetwork,
       protocol: selectedProtocol,
@@ -114,6 +125,7 @@ export const GetPools = ({ isOpen = true }: { isOpen?: boolean }) => {
     console.log(`🔄 Using protocol: ${selectedProtocol}`);
 
     // Update search params and trigger fetch
+    // (do this in a single update to prevent race conditions)
     setSearchParams(params);
     setShouldFetch(true);
   };
@@ -254,7 +266,7 @@ export const GetPools = ({ isOpen = true }: { isOpen?: boolean }) => {
             </div>
           )}
 
-          {error && (
+          {error && shouldFetch && (
             <div className="alert alert-error">
               <svg
                 xmlns="http://www.w3.org/2000/svg"

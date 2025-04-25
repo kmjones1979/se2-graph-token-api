@@ -10,19 +10,35 @@ export interface TokenHolder {
   address: string;
   balance: string;
   balance_usd?: number;
-  last_updated_block: number;
+  last_updated_block?: number;
+  block_num?: number;
+  timestamp?: number;
+  datetime?: string;
+  date?: string;
   token_share?: number;
+  percent?: number;
 }
 
 /**
  * Token holders API response
  */
 export interface TokenHoldersResponse {
-  contract_address: string;
-  holders: TokenHolder[];
-  page: number;
-  page_size: number;
-  total_holders: number;
+  data?: TokenHolder[];
+  contract_address?: string;
+  holders?: TokenHolder[];
+  page?: number;
+  page_size?: number;
+  total_holders?: number;
+  statistics?: {
+    bytes_read: number;
+    rows_read: number;
+    elapsed: number;
+  };
+  pagination?: {
+    page: number;
+    page_size: number;
+    total_pages: number;
+  };
 }
 
 /**
@@ -51,9 +67,28 @@ export const useTokenHolders = (
   // Normalize the contract address (ensure it has 0x prefix)
   const normalizedContract = contract && !contract.startsWith("0x") ? `0x${contract}` : contract;
 
-  return useTokenApi<TokenHoldersResponse>(
+  const result = useTokenApi<TokenHoldersResponse | { data: TokenHolder[] }>(
     normalizedContract ? `holders/evm/${normalizedContract}` : "",
     { ...params },
     options,
   );
+
+  // Handle different response formats
+  let formattedData: TokenHoldersResponse = {};
+
+  if (result.data) {
+    if ("data" in result.data && Array.isArray(result.data.data)) {
+      formattedData = {
+        data: result.data.data,
+        holders: result.data.data,
+      };
+    } else {
+      formattedData = result.data as TokenHoldersResponse;
+    }
+  }
+
+  return {
+    ...result,
+    data: formattedData,
+  };
 };

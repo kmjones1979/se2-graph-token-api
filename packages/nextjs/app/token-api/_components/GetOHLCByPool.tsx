@@ -313,15 +313,23 @@ export const GetOHLCByPool = ({ isOpen = true }: { isOpen?: boolean }) => {
   // Handle pagination
   const goToNextPage = () => {
     if (page < totalPages) {
-      setPage(prevPage => prevPage + 1);
-      fetchOHLCData();
+      const newPage = page + 1;
+      setPage(newPage);
+      // Use setTimeout to ensure state is updated before fetch
+      setTimeout(() => {
+        fetchOHLCData();
+      }, 10);
     }
   };
 
   const goToPrevPage = () => {
     if (page > 1) {
-      setPage(prevPage => prevPage - 1);
-      fetchOHLCData();
+      const newPage = page - 1;
+      setPage(newPage);
+      // Use setTimeout to ensure state is updated before fetch
+      setTimeout(() => {
+        fetchOHLCData();
+      }, 10);
     }
   };
 

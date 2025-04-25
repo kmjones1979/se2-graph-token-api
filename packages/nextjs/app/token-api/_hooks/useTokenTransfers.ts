@@ -27,7 +27,7 @@ export interface TokenTransfer {
  */
 export interface TokenTransferItem {
   block_num: number;
-  datetime: string;
+  datetime?: string;
   timestamp?: number;
   date?: string;
   contract: string;
@@ -49,18 +49,18 @@ export interface TokenTransferItem {
 export interface TokenTransfersResponse {
   data: TokenTransferItem[];
   transfers?: TokenTransfer[];
-  statistics: {
+  statistics?: {
     bytes_read: number;
     rows_read: number;
     elapsed: number;
   };
-  pagination: {
+  pagination?: {
     page: number;
     page_size: number;
     total_pages: number;
   };
-  results: number;
-  total_results: number;
+  results?: number;
+  total_results?: number;
 }
 
 /**
@@ -97,9 +97,20 @@ export const useTokenTransfers = (
   // Normalize the address (ensure it has 0x prefix)
   const normalizedAddress = address && !address.startsWith("0x") ? `0x${address}` : address;
 
-  return useTokenApi<TokenTransfersResponse>(
+  const result = useTokenApi<TokenTransfersResponse | { data: TokenTransferItem[] }>(
     normalizedAddress ? `transfers/evm/${normalizedAddress}` : "",
     { ...params },
     options,
   );
+
+  // Handle both response formats
+  const formattedData: TokenTransfersResponse =
+    result.data && "data" in result.data && !("transfers" in result.data) && !("statistics" in result.data)
+      ? { data: result.data.data }
+      : (result.data as TokenTransfersResponse);
+
+  return {
+    ...result,
+    data: formattedData,
+  };
 };

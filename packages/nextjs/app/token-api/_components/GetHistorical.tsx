@@ -253,15 +253,25 @@ export const GetHistorical = ({ isOpen = true }: { isOpen?: boolean }) => {
   // Handle pagination
   const goToNextPage = () => {
     if (page < totalPages) {
-      setPage(prevPage => prevPage + 1);
-      fetchHistoricalBalances();
+      const newPage = page + 1;
+      setPage(newPage);
+      // We'll do a fresh fetch with the new page number
+      // Instead of using the callback version which might cause issues
+      setTimeout(() => {
+        fetchHistoricalBalances();
+      }, 10);
     }
   };
 
   const goToPrevPage = () => {
     if (page > 1) {
-      setPage(prevPage => prevPage - 1);
-      fetchHistoricalBalances();
+      const newPage = page - 1;
+      setPage(newPage);
+      // We'll do a fresh fetch with the new page number
+      // Instead of using the callback version which might cause issues
+      setTimeout(() => {
+        fetchHistoricalBalances();
+      }, 10);
     }
   };
 

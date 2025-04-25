@@ -13,8 +13,29 @@ export interface TokenBalance {
   symbol?: string;
   decimals?: number;
   amount_usd?: number;
+  price_usd?: number;
   logo_url?: string;
+  icon?: {
+    web3icon?: string;
+  };
   network_id: NetworkId;
+}
+
+/**
+ * Token balances API response
+ */
+export interface TokenBalancesResponse {
+  data: TokenBalance[];
+  statistics?: {
+    bytes_read: number;
+    rows_read: number;
+    elapsed: number;
+  };
+  pagination?: {
+    page: number;
+    page_size: number;
+    total_pages: number;
+  };
 }
 
 /**
@@ -44,9 +65,25 @@ export const useTokenBalances = (
   // Normalize the address (ensure it has 0x prefix)
   const normalizedAddress = address && !address.startsWith("0x") ? `0x${address}` : address;
 
-  return useTokenApi<TokenBalance[]>(
+  const result = useTokenApi<TokenBalancesResponse | TokenBalance[] | { data: TokenBalance[] }>(
     normalizedAddress ? `balances/evm/${normalizedAddress}` : "",
     { ...params },
     options,
   );
+
+  // Handle different response formats
+  let formattedData: TokenBalance[] = [];
+
+  if (result.data) {
+    if (Array.isArray(result.data)) {
+      formattedData = result.data;
+    } else if ("data" in result.data && Array.isArray(result.data.data)) {
+      formattedData = result.data.data;
+    }
+  }
+
+  return {
+    ...result,
+    data: formattedData,
+  };
 };

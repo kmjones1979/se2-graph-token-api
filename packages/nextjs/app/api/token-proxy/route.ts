@@ -37,10 +37,17 @@ export async function GET(request: NextRequest) {
       "Content-Type": "application/json",
     };
 
-    if (process.env.NEXT_PUBLIC_GRAPH_TOKEN) {
+    // First try to use API key if available
+    if (process.env.NEXT_PUBLIC_GRAPH_API_KEY) {
+      headers["X-Api-Key"] = process.env.NEXT_PUBLIC_GRAPH_API_KEY;
+    }
+    // Fall back to JWT token if no API key
+    else if (process.env.NEXT_PUBLIC_GRAPH_TOKEN) {
       headers["Authorization"] = `Bearer ${process.env.NEXT_PUBLIC_GRAPH_TOKEN}`;
     } else {
-      console.warn("⚠️ No API token found in environment variables. API calls may fail due to authentication issues.");
+      console.warn(
+        "⚠️ No API token or key found in environment variables. API calls may fail due to authentication issues.",
+      );
     }
 
     // Make the API request

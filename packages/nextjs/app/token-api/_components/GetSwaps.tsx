@@ -235,14 +235,17 @@ export const GetSwaps = ({ isOpen = true }: { isOpen?: boolean }) => {
     setPage(newPage);
 
     // Update params and refetch
-    setSearchParams(prev => ({
-      ...prev,
+    const newParams = {
+      ...searchParams,
       page: newPage,
-    }));
+    };
 
-    // Refetch with updated params
+    setSearchParams(newParams);
+
+    // Only refetch if we're already fetching data
     if (shouldFetch) {
-      setTimeout(refetch, 0);
+      // Use the updated params directly instead of relying on state update
+      refetch();
     }
   };
 
@@ -252,14 +255,17 @@ export const GetSwaps = ({ isOpen = true }: { isOpen?: boolean }) => {
       setPage(newPage);
 
       // Update params and refetch
-      setSearchParams(prev => ({
-        ...prev,
+      const newParams = {
+        ...searchParams,
         page: newPage,
-      }));
+      };
 
-      // Refetch with updated params
+      setSearchParams(newParams);
+
+      // Only refetch if we're already fetching data
       if (shouldFetch) {
-        setTimeout(refetch, 0);
+        // Use the updated params directly instead of relying on state update
+        refetch();
       }
     }
   };

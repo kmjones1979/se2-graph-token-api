@@ -21,20 +21,36 @@ const EVM_NETWORKS: EVMNetwork[] = [
   { id: "matic", name: "Polygon" },
 ];
 
-// Extended token metadata interface for our component
-interface TokenMetadataResponse extends TokenMetadata {
+// Token metadata interface for our component
+interface TokenMetadataResponse {
+  name?: string;
+  symbol?: string;
+  decimals?: number;
+  total_supply?: string;
+  contract_address?: string;
+  address?: string;
+  network_id?: NetworkId;
+  block_number?: number;
+  block_timestamp?: number;
+  block_num?: number;
   date?: string;
   timestamp?: string;
-  block_num?: number;
-  address?: string;
-  network_id?: string;
   circulating_supply?: string;
   holders?: number;
+  logo_url?: string;
   icon?: {
     web3icon?: string;
   };
+  market_data?: {
+    price_usd?: number;
+    fully_diluted_valuation?: number;
+    market_cap?: number;
+    total_volume_24h?: number;
+    price_change_percentage_24h?: number;
+  };
   price_usd?: number;
   market_cap?: number;
+  low_liquidity?: boolean;
 }
 
 interface ApiResponse {
@@ -47,7 +63,12 @@ interface ApiResponse {
 }
 
 // Helper function to estimate date from block number
-const estimateDateFromBlock = (blockNum: number, networkId: string): Date => {
+const estimateDateFromBlock = (blockNum: number | undefined, networkId: string): Date => {
+  // If block number is undefined, return current date
+  if (blockNum === undefined) {
+    return new Date();
+  }
+
   // Current block numbers as of May 2024 (conservative estimates)
   const currentBlock =
     {
@@ -409,11 +430,8 @@ export const GetMetadata = ({ isOpen = true }: { isOpen?: boolean }) => {
                           ? new Date(metadata.block_timestamp * 1000).toLocaleString()
                           : metadata.timestamp
                             ? new Date(metadata.timestamp.replace(" ", "T")).toLocaleString()
-                            : metadata.block_number || metadata.block_num
-                              ? estimateDateFromBlock(
-                                  metadata.block_number || metadata.block_num || 0,
-                                  metadata.network_id || selectedNetwork,
-                                ).toLocaleString()
+                            : metadata.date
+                              ? new Date(metadata.date).toLocaleString()
                               : new Date().toLocaleString()}
                       </div>
                       <div className="stat-desc">Block: {metadata.block_number || metadata.block_num || "Unknown"}</div>

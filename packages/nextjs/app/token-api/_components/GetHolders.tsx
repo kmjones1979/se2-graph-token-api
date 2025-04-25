@@ -23,7 +23,7 @@ const EVM_NETWORKS: EVMNetwork[] = [
 
 // API response holder format (extends TokenHolder with additional fields)
 interface HolderItem {
-  block_num: number;
+  block_num?: number;
   timestamp?: number;
   date?: string;
   address: string;
@@ -53,36 +53,20 @@ interface ApiResponse {
   total_holders?: number;
 }
 
-// Helper function to estimate date from block number
-const estimateDateFromBlock = (blockNum: number, networkId: string): Date => {
-  // Current block numbers as of May 2024 (conservative estimates)
-  const currentBlock =
-    {
-      mainnet: 19200000, // Ethereum mainnet
-      "arbitrum-one": 175000000, // Arbitrum
-      base: 10000000, // Base
-      bsc: 34000000, // BSC
-      optimism: 110000000, // Optimism
-      matic: 50000000, // Polygon
-    }[networkId] || 19200000;
+// Helper function to estimate date from block number and network
+const estimateDateFromBlock = (blockNum: number | undefined, networkId: string): Date => {
+  if (blockNum === undefined) {
+    return new Date();
+  }
 
-  // Average block time in seconds for different networks
-  const blockTime =
-    {
-      mainnet: 12,
-      "arbitrum-one": 0.25,
-      base: 2,
-      bsc: 3,
-      optimism: 2,
-      matic: 2.5,
-    }[networkId] || 12;
-
-  // Calculate seconds since the block
+  const now = new Date();
+  const blockTime = networkId === "mainnet" ? 12 : 3; // Estimated seconds per block
+  // Current block estimates based on network
+  const currentBlock = now.getTime() / 1000 / blockTime;
   const blockDiff = Math.max(0, currentBlock - blockNum); // Ensure non-negative
   const secondsAgo = blockDiff * blockTime;
 
   // Calculate the date, ensuring it's not in the future
-  const now = new Date();
   const estimatedDate = new Date(now.getTime() - secondsAgo * 1000);
   return estimatedDate > now ? now : estimatedDate;
 };
