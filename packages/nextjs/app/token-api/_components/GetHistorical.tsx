@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { EVM_NETWORKS, getNetworkName } from "~~/app/token-api/_config/networks";
+import { TIME_INTERVALS, TIME_SPANS, getTimeRange } from "~~/app/token-api/_config/timeConfig";
 import {
   HistoricalBalance,
   TokenBalanceHistory,
@@ -8,41 +10,6 @@ import {
 } from "~~/app/token-api/_hooks/useHistoricalBalances";
 import { NetworkId } from "~~/app/token-api/_hooks/useTokenApi";
 import { Address, AddressInput } from "~~/components/scaffold-eth";
-
-// Define supported EVM networks
-interface EVMNetwork {
-  id: string;
-  name: string;
-  icon?: string;
-}
-
-const EVM_NETWORKS: EVMNetwork[] = [
-  { id: "mainnet", name: "Ethereum" },
-  { id: "base", name: "Base" },
-  { id: "arbitrum-one", name: "Arbitrum" },
-  { id: "bsc", name: "BSC" },
-  { id: "optimism", name: "Optimism" },
-  { id: "matic", name: "Polygon" },
-  { id: "unichain", name: "Unichain" },
-];
-
-// Define supported time intervals
-const TIME_INTERVALS = [
-  { id: "1h", name: "1 Hour" },
-  { id: "4h", name: "4 Hours" },
-  { id: "1d", name: "1 Day" },
-  { id: "1w", name: "1 Week" },
-];
-
-// Define time span options
-const TIME_SPANS = [
-  { id: "1d", name: "Last 24 Hours", seconds: 86400 },
-  { id: "7d", name: "Last 7 Days", seconds: 604800 },
-  { id: "30d", name: "Last 30 Days", seconds: 2592000 },
-  { id: "90d", name: "Last 90 Days", seconds: 7776000 },
-  { id: "180d", name: "Last 180 Days", seconds: 15552000 },
-  { id: "1y", name: "Last Year", seconds: 31536000 },
-];
 
 // Adapter interface for API response
 interface HistoricalBalanceItem {
@@ -120,18 +87,6 @@ export const GetHistorical = ({ isOpen = true }: { isOpen?: boolean }) => {
     setError(null);
   };
 
-  // Calculate time range based on selected time span
-  const getTimeRange = () => {
-    const now = Math.floor(Date.now() / 1000); // Current timestamp in seconds
-    const timeSpanObj = TIME_SPANS.find(span => span.id === selectedTimeSpan);
-    if (!timeSpanObj) return { startTime: now - 2592000, endTime: now }; // Default to 30 days
-
-    return {
-      startTime: now - timeSpanObj.seconds,
-      endTime: now,
-    };
-  };
-
   const fetchHistoricalBalances = async () => {
     if (!walletAddress) {
       setError("Please enter a wallet address");
@@ -162,7 +117,7 @@ export const GetHistorical = ({ isOpen = true }: { isOpen?: boolean }) => {
 
       // Only add additional parameters if not using minimal params mode
       if (!useMinimalParams) {
-        const { startTime, endTime } = getTimeRange();
+        const { startTime, endTime } = getTimeRange(selectedTimeSpan);
         queryParams.append("interval", selectedInterval);
         queryParams.append("startTime", startTime.toString());
         queryParams.append("endTime", endTime.toString());
@@ -411,7 +366,7 @@ export const GetHistorical = ({ isOpen = true }: { isOpen?: boolean }) => {
           {isLoading && (
             <div className="alert">
               <span className="loading loading-spinner loading-md"></span>
-              <span>Loading historical balances on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}...</span>
+              <span>Loading historical balances on {getNetworkName(selectedNetwork)}...</span>
             </div>
           )}
 
@@ -511,10 +466,7 @@ export const GetHistorical = ({ isOpen = true }: { isOpen?: boolean }) => {
                   d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              <span>
-                No historical balance data found for this address on{" "}
-                {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}
-              </span>
+              <span>No historical balance data found for this address on {getNetworkName(selectedNetwork)}</span>
             </div>
           )}
         </div>

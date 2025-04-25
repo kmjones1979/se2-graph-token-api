@@ -1,142 +1,90 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { estimateDateFromBlock } from "~~/app/token-api/_config/blockTimeUtils";
+import { getExampleTokenAddress } from "~~/app/token-api/_config/exampleTokens";
+import { EVM_NETWORKS, getNetworkName } from "~~/app/token-api/_config/networks";
 import { NetworkId } from "~~/app/token-api/_hooks/useTokenApi";
 import { TokenMetadata, useTokenMetadata } from "~~/app/token-api/_hooks/useTokenMetadata";
-import { AddressInput } from "~~/components/scaffold-eth";
-
-// Define supported EVM networks
-interface EVMNetwork {
-  id: string;
-  name: string;
-  icon?: string;
-}
-
-const EVM_NETWORKS: EVMNetwork[] = [
-  { id: "mainnet", name: "Ethereum" },
-  { id: "base", name: "Base" },
-  { id: "arbitrum-one", name: "Arbitrum" },
-  { id: "bsc", name: "BSC" },
-  { id: "optimism", name: "Optimism" },
-  { id: "matic", name: "Polygon" },
-];
-
-// Token metadata interface for our component
-interface TokenMetadataResponse {
-  name?: string;
-  symbol?: string;
-  decimals?: number;
-  total_supply?: string;
-  contract_address?: string;
-  address?: string;
-  network_id?: NetworkId;
-  block_number?: number;
-  block_timestamp?: number;
-  block_num?: number;
-  date?: string;
-  timestamp?: string;
-  circulating_supply?: string;
-  holders?: number;
-  logo_url?: string;
-  icon?: {
-    web3icon?: string;
-  };
-  market_data?: {
-    price_usd?: number;
-    fully_diluted_valuation?: number;
-    market_cap?: number;
-    total_volume_24h?: number;
-    price_change_percentage_24h?: number;
-  };
-  price_usd?: number;
-  market_cap?: number;
-  low_liquidity?: boolean;
-}
-
-interface ApiResponse {
-  data?: TokenMetadataResponse[];
-  statistics?: {
-    bytes_read: number;
-    rows_read: number;
-    elapsed: number;
-  };
-}
-
-// Helper function to estimate date from block number
-const estimateDateFromBlock = (blockNum: number | undefined, networkId: string): Date => {
-  // If block number is undefined, return current date
-  if (blockNum === undefined) {
-    return new Date();
-  }
-
-  // Current block numbers as of May 2024 (conservative estimates)
-  const currentBlock =
-    {
-      mainnet: 19200000, // Ethereum mainnet
-      "arbitrum-one": 175000000, // Arbitrum
-      base: 10000000, // Base
-      bsc: 34000000, // BSC
-      optimism: 110000000, // Optimism
-      matic: 50000000, // Polygon
-    }[networkId] || 19200000;
-
-  // Average block time in seconds for different networks
-  const blockTime =
-    {
-      mainnet: 12,
-      "arbitrum-one": 0.25,
-      base: 2,
-      bsc: 3,
-      optimism: 2,
-      matic: 2.5,
-    }[networkId] || 12;
-
-  // Calculate seconds since the block
-  const blockDiff = Math.max(0, currentBlock - blockNum); // Ensure non-negative
-  const secondsAgo = blockDiff * blockTime;
-
-  // Calculate the date, ensuring it's not in the future
-  const now = new Date();
-  const estimatedDate = new Date(now.getTime() - secondsAgo * 1000);
-  return estimatedDate > now ? now : estimatedDate;
-};
+import { Address, AddressInput } from "~~/components/scaffold-eth";
 
 export const GetMetadata = ({ isOpen = true }: { isOpen?: boolean }) => {
   const [contractAddress, setContractAddress] = useState<string>("");
   const [selectedNetwork, setSelectedNetwork] = useState<NetworkId>("mainnet");
-  const [metadata, setMetadata] = useState<TokenMetadataResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [shouldFetch, setShouldFetch] = useState<boolean>(false);
+  const processingData = useRef(false);
+  const [tokenData, setTokenData] = useState<TokenMetadata | null>(null);
 
-  // Use the hook to get types but skip automatic fetching
+  // Use the hook with proper control
   const {
-    data,
-    isLoading: hookLoading,
+    data: metadataResponse,
+    isLoading,
     error: hookError,
+    refetch,
   } = useTokenMetadata(
     contractAddress,
     {
       network_id: selectedNetwork,
       include_market_data: true,
     },
-    { skip: true }, // Skip initial fetch until explicitly triggered
+    { skip: !shouldFetch }, // Skip initial fetch until explicitly triggered
   );
 
-  // Example token addresses for testing
-  const exampleTokens = {
-    mainnet: "0xc944E90C64B2c07662A292be6244BDf05Cda44a7", // GRT Token
-    "arbitrum-one": "0x912CE59144191C1204E64559FE8253a0e49E6548", // ARB Token
-    base: "0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22", // cbETH
-    bsc: "0x55d398326f99059fF775485246999027B3197955", // BSC-USD
-    optimism: "0x4200000000000000000000000000000000000042", // OP Token
-    matic: "0x0000000000000000000000000000000000001010", // MATIC
-  };
+  // Process data from the hook when it's available
+  useEffect(() => {
+    if (!metadataResponse || processingData.current) return;
+
+    processingData.current = true;
+
+    try {
+      console.log("📊 Received metadata from hook:", metadataResponse);
+
+      // Check if data is in a nested array
+      if (metadataResponse.data && Array.isArray(metadataResponse.data) && metadataResponse.data.length > 0) {
+        // Extract token data from the first item in the array
+        console.log("Found nested data array, using first item");
+        setTokenData(metadataResponse.data[0]);
+      } else {
+        // Use the response directly if it's not nested
+        console.log("Using direct response data");
+        setTokenData(metadataResponse);
+      }
+    } catch (err) {
+      console.error("❌ Error processing metadata:", err);
+    } finally {
+      setTimeout(() => {
+        processingData.current = false;
+      }, 100);
+    }
+  }, [metadataResponse]);
+
+  // Handle API errors separately
+  useEffect(() => {
+    if (!hookError) return;
+
+    console.error("❌ API error from hook:", hookError);
+    const errorMessage = typeof hookError === "string" ? hookError : "Failed to fetch token metadata";
+
+    // Custom error message for 404 responses
+    if (errorMessage.includes("404") || errorMessage.includes("not found")) {
+      setError(`No metadata found for this token contract. Please verify:
+        1. The contract address is correct
+        2. The contract is an ERC20 token
+        3. The selected network is correct (currently: ${getNetworkName(selectedNetwork)})
+        
+        Try using example token: ${getExampleTokenAddress(selectedNetwork)}`);
+    } else {
+      setError(errorMessage);
+    }
+  }, [hookError, selectedNetwork]);
 
   // Handle network change
   const handleNetworkChange = (newNetwork: string) => {
     setSelectedNetwork(newNetwork as NetworkId);
-    setMetadata(null);
     setError(null);
+    setShouldFetch(false);
+    setTokenData(null);
   };
 
   const fetchMetadata = async () => {
@@ -151,85 +99,19 @@ export const GetMetadata = ({ isOpen = true }: { isOpen?: boolean }) => {
       return;
     }
 
-    setIsLoading(true);
+    // Reset state before fetching
     setError(null);
+    processingData.current = false;
+    setTokenData(null);
+    setShouldFetch(true);
 
     try {
-      // Ensure the address has 0x prefix
-      const formattedAddress = contractAddress.startsWith("0x") ? contractAddress : `0x${contractAddress}`;
-
-      // Define the API endpoint
-      const endpoint = `tokens/evm/${formattedAddress}`;
-      console.log("🔍 API endpoint:", endpoint);
-
-      // Build the query parameters
-      const queryParams = new URLSearchParams();
-      queryParams.append("path", endpoint);
-      queryParams.append("network_id", selectedNetwork);
-      queryParams.append("include_market_data", "true");
-
-      // Call the API directly
-      const fullUrl = `/api/token-proxy?${queryParams.toString()}`;
-      console.log("🔍 Making direct API request to:", fullUrl);
-      console.log(`🔑 Using network: ${selectedNetwork}`);
-      console.log(`📝 Contract Address: ${contractAddress}`);
-
-      const response = await fetch(fullUrl);
-      console.log("🔍 API response status:", response.status);
-
-      // Handle 404 with custom error message
-      if (response.status === 404) {
-        const errorText = await response.text();
-        throw new Error(`No metadata found for this token contract. Please verify:
-          1. The contract address is correct
-          2. The contract is an ERC20 token
-          3. The selected network is correct (currently: ${selectedNetwork})
-          
-          Try these example tokens:
-          - Mainnet (GRT): ${exampleTokens.mainnet}
-          - Arbitrum (ARB): ${exampleTokens["arbitrum-one"]}
-          - Base (cbETH): ${exampleTokens.base}
-          - BSC (BSC-USD): ${exampleTokens.bsc}
-          - Optimism (OP): ${exampleTokens.optimism}
-          - Polygon (MATIC): ${exampleTokens.matic}`);
-      }
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("❌ API error response:", errorText);
-        throw new Error(`API request failed with status ${response.status}: ${errorText}`);
-      }
-
-      const jsonData: ApiResponse = await response.json();
-      console.log("🔍 API response data:", jsonData);
-
-      // Process the response based on format
-      if (jsonData.data && Array.isArray(jsonData.data) && jsonData.data.length > 0) {
-        console.log("📊 Setting metadata from jsonData.data[0]");
-        setMetadata(jsonData.data[0]);
-      } else if (typeof jsonData === "object" && jsonData !== null) {
-        // Handle case where the API returns the token data directly
-        console.log("📊 Setting metadata from direct object response");
-
-        // Check if it has token metadata properties
-        if ("name" in jsonData || "symbol" in jsonData || "decimals" in jsonData) {
-          setMetadata(jsonData as TokenMetadataResponse);
-        } else {
-          console.error("❌ Unexpected response format:", jsonData);
-          throw new Error("Unexpected response format. No token metadata found.");
-        }
-      } else {
-        console.log("⚠️ No token metadata found in response or unexpected format");
-        setMetadata(null);
-        throw new Error("No metadata found for this token contract");
-      }
+      // Use the refetch function from the hook
+      await refetch();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "An error occurred";
       console.error("❌ Error fetching metadata:", err);
       setError(errorMessage);
-      setMetadata(null);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -239,8 +121,9 @@ export const GetMetadata = ({ isOpen = true }: { isOpen?: boolean }) => {
   };
 
   // Format supply with decimals
-  const formatSupply = (supply: string, decimals: number) => {
-    const amount = Number(supply) / Math.pow(10, decimals);
+  const formatSupply = (supply: string, decimals: number | undefined) => {
+    const actualDecimals = decimals || 18; // Default to 18 if undefined
+    const amount = Number(supply) / Math.pow(10, actualDecimals);
     return formatNumber(amount.toFixed(2));
   };
 
@@ -281,7 +164,7 @@ export const GetMetadata = ({ isOpen = true }: { isOpen?: boolean }) => {
                     placeholder="Enter token contract address"
                   />
                   <div className="mt-2 text-sm opacity-70">
-                    Example for {selectedNetwork}: {exampleTokens[selectedNetwork as keyof typeof exampleTokens]}
+                    Example for {getNetworkName(selectedNetwork)}: {getExampleTokenAddress(selectedNetwork)}
                   </div>
                 </div>
                 <div className="w-full">
@@ -316,7 +199,7 @@ export const GetMetadata = ({ isOpen = true }: { isOpen?: boolean }) => {
           {isLoading && (
             <div className="alert">
               <span className="loading loading-spinner loading-md"></span>
-              <span>Loading token metadata on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}...</span>
+              <span>Loading token metadata on {getNetworkName(selectedNetwork)}...</span>
             </div>
           )}
 
@@ -339,23 +222,23 @@ export const GetMetadata = ({ isOpen = true }: { isOpen?: boolean }) => {
             </div>
           )}
 
-          {!isLoading && !error && metadata && (
+          {!isLoading && !error && tokenData && (
             <div className="card bg-base-100 shadow-xl">
               <div className="card-body">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6">
-                  {metadata.icon?.web3icon && (
+                  {tokenData.icon?.web3icon && (
                     <div className="w-12 h-12 rounded-full bg-base-200 flex items-center justify-center flex-shrink-0">
-                      <span className="text-2xl">{metadata.icon.web3icon}</span>
+                      <span className="text-2xl">{tokenData.icon.web3icon}</span>
                     </div>
                   )}
-                  {metadata.logo_url && (
+                  {tokenData.logo_url && (
                     <div className="w-12 h-12 rounded-full bg-base-200 flex items-center justify-center flex-shrink-0">
-                      <img src={metadata.logo_url} alt="Token logo" className="w-10 h-10 rounded-full" />
+                      <img src={tokenData.logo_url} alt="Token logo" className="w-10 h-10 rounded-full" />
                     </div>
                   )}
                   <div className="flex-grow min-w-0">
-                    <h2 className="card-title text-2xl">{metadata.name}</h2>
-                    <p className="text-lg opacity-70">{metadata.symbol}</p>
+                    <h2 className="card-title text-2xl">{tokenData.name}</h2>
+                    <p className="text-lg opacity-70">{tokenData.symbol}</p>
                   </div>
                 </div>
 
@@ -363,62 +246,65 @@ export const GetMetadata = ({ isOpen = true }: { isOpen?: boolean }) => {
                   <div className="stat bg-base-200 rounded-box p-4">
                     <div className="stat-title">Contract Address</div>
                     <div className="stat-value text-base break-all font-mono">
-                      {metadata.contract_address || metadata.address}
+                      {tokenData.contract_address || tokenData.address || contractAddress ? (
+                        <Address address={tokenData.contract_address || tokenData.address || contractAddress} />
+                      ) : (
+                        "Unknown contract address"
+                      )}
                     </div>
                   </div>
 
                   <div className="stat bg-base-200 rounded-box p-4">
                     <div className="stat-title">Network</div>
-                    <div className="stat-value">
-                      {EVM_NETWORKS.find(n => n.id === (metadata.network_id || selectedNetwork))?.name}
-                    </div>
+                    <div className="stat-value">{getNetworkName(tokenData.network_id || selectedNetwork)}</div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="stat bg-base-200 rounded-box p-4">
                       <div className="stat-title">Circulating Supply</div>
                       <div className="stat-value text-primary text-2xl sm:text-3xl break-all">
-                        {formatSupply(metadata.circulating_supply || metadata.total_supply || "0", metadata.decimals)}
+                        {formatSupply(
+                          tokenData.circulating_supply || tokenData.total_supply || "0",
+                          tokenData.decimals,
+                        )}
                       </div>
-                      <div className="stat-desc">Decimals: {metadata.decimals}</div>
+                      <div className="stat-desc">Decimals: {tokenData.decimals}</div>
                     </div>
 
                     <div className="stat bg-base-200 rounded-box p-4">
                       <div className="stat-title">Total Holders</div>
-                      <div className="stat-value text-secondary">{formatNumber(metadata.holders || 0)}</div>
+                      <div className="stat-value text-secondary">{formatNumber(tokenData.holders || 0)}</div>
                     </div>
 
-                    {(metadata.market_data?.price_usd || metadata.price_usd) && (
+                    {tokenData.market_data?.price_usd && (
                       <div className="stat bg-base-200 rounded-box p-4">
                         <div className="stat-title">Price (USD)</div>
-                        <div className="stat-value">
-                          ${(metadata.market_data?.price_usd || metadata.price_usd || 0).toFixed(4)}
-                        </div>
-                        {metadata.market_data?.price_change_percentage_24h && (
+                        <div className="stat-value">${tokenData.market_data.price_usd.toFixed(4)}</div>
+                        {tokenData.market_data.price_change_percentage_24h && (
                           <div
-                            className={`stat-desc ${metadata.market_data.price_change_percentage_24h >= 0 ? "text-success" : "text-error"}`}
+                            className={`stat-desc ${tokenData.market_data.price_change_percentage_24h >= 0 ? "text-success" : "text-error"}`}
                           >
-                            {metadata.market_data.price_change_percentage_24h >= 0 ? "↗︎" : "↘︎"}
-                            {metadata.market_data.price_change_percentage_24h.toFixed(2)}% (24h)
+                            {tokenData.market_data.price_change_percentage_24h >= 0 ? "↗︎" : "↘︎"}
+                            {tokenData.market_data.price_change_percentage_24h.toFixed(2)}% (24h)
                           </div>
                         )}
                       </div>
                     )}
 
-                    {(metadata.market_data?.market_cap || metadata.market_cap) && (
+                    {tokenData.market_data?.market_cap && (
                       <div className="stat bg-base-200 rounded-box p-4">
                         <div className="stat-title">Market Cap (USD)</div>
                         <div className="stat-value text-2xl sm:text-3xl break-all">
-                          ${formatNumber((metadata.market_data?.market_cap || metadata.market_cap || 0).toFixed(2))}
+                          ${formatNumber(tokenData.market_data.market_cap.toFixed(2))}
                         </div>
                       </div>
                     )}
 
-                    {metadata.market_data?.total_volume_24h && (
+                    {tokenData.market_data?.total_volume_24h && (
                       <div className="stat bg-base-200 rounded-box p-4">
                         <div className="stat-title">24h Volume (USD)</div>
                         <div className="stat-value">
-                          ${formatNumber(metadata.market_data.total_volume_24h.toFixed(2))}
+                          ${formatNumber(tokenData.market_data.total_volume_24h.toFixed(2))}
                         </div>
                       </div>
                     )}
@@ -426,15 +312,20 @@ export const GetMetadata = ({ isOpen = true }: { isOpen?: boolean }) => {
                     <div className="stat bg-base-200 rounded-box p-4">
                       <div className="stat-title">Last Updated</div>
                       <div className="stat-value text-base">
-                        {metadata.block_timestamp
-                          ? new Date(metadata.block_timestamp * 1000).toLocaleString()
-                          : metadata.timestamp
-                            ? new Date(metadata.timestamp.replace(" ", "T")).toLocaleString()
-                            : metadata.date
-                              ? new Date(metadata.date).toLocaleString()
-                              : new Date().toLocaleString()}
+                        {tokenData.block_timestamp
+                          ? new Date(tokenData.block_timestamp * 1000).toLocaleString()
+                          : tokenData.timestamp
+                            ? new Date(tokenData.timestamp.replace(" ", "T")).toLocaleString()
+                            : tokenData.datetime || tokenData.date
+                              ? new Date((tokenData.datetime || tokenData.date) as string).toLocaleString()
+                              : estimateDateFromBlock(
+                                  tokenData.block_number || tokenData.block_num || 0,
+                                  tokenData.network_id || selectedNetwork,
+                                ).toLocaleString()}
                       </div>
-                      <div className="stat-desc">Block: {metadata.block_number || metadata.block_num || "Unknown"}</div>
+                      <div className="stat-desc">
+                        Block: {tokenData.block_number || tokenData.block_num || "Unknown"}
+                      </div>
                     </div>
                   </div>
                 </div>

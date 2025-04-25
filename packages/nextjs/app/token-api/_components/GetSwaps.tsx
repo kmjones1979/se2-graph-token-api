@@ -1,32 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { EVM_NETWORKS, getBlockExplorerTxUrl, getNetworkName } from "~~/app/token-api/_config/networks";
+import { PROTOCOLS, ProtocolId, formatProtocolDisplay } from "~~/app/token-api/_config/protocols";
 import { NetworkId } from "~~/app/token-api/_hooks/useTokenApi";
 import { Swap, SwapsParams, useTokenSwaps } from "~~/app/token-api/_hooks/useTokenSwaps";
 import { Address, AddressInput } from "~~/components/scaffold-eth";
-
-// Define supported EVM networks that match the NetworkId type
-interface EVMNetwork {
-  id: NetworkId;
-  name: string;
-  icon?: string;
-}
-
-const EVM_NETWORKS: EVMNetwork[] = [
-  { id: "mainnet", name: "Ethereum" },
-  { id: "base", name: "Base" },
-  { id: "arbitrum-one", name: "Arbitrum" },
-  { id: "bsc", name: "BNB Smart Chain" },
-  { id: "optimism", name: "Optimism" },
-  { id: "matic", name: "Polygon" },
-  { id: "unichain", name: "Unichain" },
-];
-
-// Define supported protocols
-const PROTOCOLS = [
-  { id: "uniswap_v2", name: "Uniswap V2" },
-  { id: "uniswap_v3", name: "Uniswap V3" },
-];
 
 export const GetSwaps = ({ isOpen = true }: { isOpen?: boolean }) => {
   // State for search parameters
@@ -36,7 +15,7 @@ export const GetSwaps = ({ isOpen = true }: { isOpen?: boolean }) => {
   const [recipientAddress, setRecipientAddress] = useState<string>("");
   const [transactionId, setTransactionId] = useState<string>("");
   const [selectedNetwork, setSelectedNetwork] = useState<NetworkId>("mainnet");
-  const [selectedProtocol, setSelectedProtocol] = useState<string>("uniswap_v3");
+  const [selectedProtocol, setSelectedProtocol] = useState<ProtocolId>("uniswap_v3");
   const [limit, setLimit] = useState<number>(10);
   const [page, setPage] = useState<number>(1);
 
@@ -91,7 +70,7 @@ export const GetSwaps = ({ isOpen = true }: { isOpen?: boolean }) => {
 
   // Handle protocol change
   const handleProtocolChange = (newProtocol: string) => {
-    setSelectedProtocol(newProtocol);
+    setSelectedProtocol(newProtocol as ProtocolId);
     setSwaps([]);
   };
 
@@ -207,26 +186,10 @@ export const GetSwaps = ({ isOpen = true }: { isOpen?: boolean }) => {
     return 18; // Default decimals
   };
 
-  // Get network name by ID
-  const getNetworkName = (networkId: string) => {
-    return EVM_NETWORKS.find(n => n.id === networkId)?.name || networkId;
-  };
-
   // Generate block explorer URL for transaction
   const getExplorerUrl = (txId: string, networkId: string) => {
     if (!txId) return "#";
-
-    const explorerBaseUrls: { [key: string]: string } = {
-      mainnet: "https://etherscan.io",
-      base: "https://basescan.org",
-      "arbitrum-one": "https://arbiscan.io",
-      bsc: "https://bscscan.com",
-      optimism: "https://optimistic.etherscan.io",
-      matic: "https://polygonscan.com",
-    };
-
-    const baseUrl = explorerBaseUrls[networkId] || "https://etherscan.io";
-    return `${baseUrl}/tx/${txId}`;
+    return getBlockExplorerTxUrl(networkId as NetworkId, txId);
   };
 
   // Handle pagination

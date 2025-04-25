@@ -1,40 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { EVMNetwork } from "../_types/common";
+import { EVM_NETWORKS, getBlockExplorerTxUrl, getNetworkName } from "~~/app/token-api/_config/networks";
 import { NetworkId } from "~~/app/token-api/_hooks/useTokenApi";
 import { TokenTransfer, TokenTransferItem, useTokenTransfers } from "~~/app/token-api/_hooks/useTokenTransfers";
 import { Address, AddressInput } from "~~/components/scaffold-eth";
 
 // Combined type to handle both API response formats
 type CombinedTransfer = TokenTransferItem | TokenTransfer;
-
-const EVM_NETWORKS: EVMNetwork[] = [
-  { id: "mainnet", name: "Ethereum" },
-  { id: "base", name: "Base" },
-  { id: "arbitrum-one", name: "Arbitrum" },
-  { id: "bsc", name: "BNB Smart Chain" },
-  { id: "optimism", name: "Optimism" },
-  { id: "matic", name: "Polygon" },
-];
-
-// Helper function to estimate date from block number and network
-const estimateDateFromBlock = (blockNum: number | undefined, networkId: string): Date => {
-  if (blockNum === undefined) {
-    return new Date();
-  }
-
-  const now = new Date();
-  const blockTime = networkId === "mainnet" ? 12 : 3; // Estimated seconds per block
-  // Current block estimates based on network
-  const currentBlock = now.getTime() / 1000 / blockTime;
-  const blockDiff = Math.max(0, currentBlock - blockNum); // Ensure non-negative
-  const secondsAgo = blockDiff * blockTime;
-
-  // Calculate the date, ensuring it's not in the future
-  const estimatedDate = new Date(now.getTime() - secondsAgo * 1000);
-  return estimatedDate > now ? now : estimatedDate;
-};
 
 export const GetTransfers = ({ isOpen = true }: { isOpen?: boolean }) => {
   const [walletAddress, setWalletAddress] = useState<string>("");
@@ -434,7 +407,7 @@ export const GetTransfers = ({ isOpen = true }: { isOpen?: boolean }) => {
           {isLoading && (
             <div className="alert">
               <span className="loading loading-spinner loading-md"></span>
-              <span>Loading token transfers on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}...</span>
+              <span>Loading token transfers on {getNetworkName(selectedNetwork)}...</span>
             </div>
           )}
 
@@ -473,8 +446,8 @@ export const GetTransfers = ({ isOpen = true }: { isOpen?: boolean }) => {
                 />
               </svg>
               <span>
-                No token transfers found for this wallet on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name} in
-                the last {age} days. Try another wallet address or network.
+                No token transfers found for this wallet on {getNetworkName(selectedNetwork)} in the last {age} days.
+                Try another wallet address or network.
               </span>
             </div>
           )}
@@ -483,9 +456,7 @@ export const GetTransfers = ({ isOpen = true }: { isOpen?: boolean }) => {
             <div className="card bg-base-100 shadow-xl">
               <div className="card-body">
                 <div className="flex justify-between items-center mb-4">
-                  <h2 className="card-title">
-                    Token Transfers on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}
-                  </h2>
+                  <h2 className="card-title">Token Transfers on {getNetworkName(selectedNetwork)}</h2>
                   <div className="flex items-center gap-2">
                     <button className="btn btn-sm btn-outline" onClick={prevPage} disabled={page <= 1}>
                       Previous
@@ -526,7 +497,7 @@ export const GetTransfers = ({ isOpen = true }: { isOpen?: boolean }) => {
                           </div>
                           <div className="text-xs opacity-70">
                             <a
-                              href={`https://etherscan.io/tx/${getTxId(transfer)}`}
+                              href={getBlockExplorerTxUrl(selectedNetwork, getTxId(transfer))}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="link link-primary"

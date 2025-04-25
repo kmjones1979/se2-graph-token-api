@@ -1,39 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { EVM_NETWORKS, getNetworkName } from "~~/app/token-api/_config/networks";
+import { PROTOCOLS, ProtocolId, formatProtocolDisplay } from "~~/app/token-api/_config/protocols";
 import { NetworkId } from "~~/app/token-api/_hooks/useTokenApi";
 import { Pool, PoolsParams, useTokenPools } from "~~/app/token-api/_hooks/useTokenPools";
 import { Address, AddressInput } from "~~/components/scaffold-eth";
-
-// Define supported EVM networks that match the NetworkId type
-interface EVMNetwork {
-  id: NetworkId;
-  name: string;
-  icon?: string;
-}
-
-const EVM_NETWORKS: EVMNetwork[] = [
-  { id: "mainnet", name: "Ethereum" },
-  { id: "base", name: "Base" },
-  { id: "arbitrum-one", name: "Arbitrum" },
-  { id: "bsc", name: "BNB Smart Chain" },
-  { id: "optimism", name: "Optimism" },
-  { id: "matic", name: "Polygon" },
-  { id: "unichain", name: "Unichain" },
-];
-
-// Define supported protocols
-const PROTOCOLS = [
-  { id: "uniswap_v2", name: "Uniswap V2" },
-  { id: "uniswap_v3", name: "Uniswap V3" },
-];
 
 export const GetPools = ({ isOpen = true }: { isOpen?: boolean }) => {
   // State for search parameters
   const [poolAddress, setPoolAddress] = useState<string>("");
   const [tokenAddress, setTokenAddress] = useState<string>("");
   const [selectedNetwork, setSelectedNetwork] = useState<NetworkId>("mainnet");
-  const [selectedProtocol, setSelectedProtocol] = useState<string>("uniswap_v3");
+  const [selectedProtocol, setSelectedProtocol] = useState<ProtocolId>("uniswap_v3");
   const [symbol, setSymbol] = useState<string>("");
   const [pools, setPools] = useState<Pool[]>([]);
 
@@ -97,7 +76,7 @@ export const GetPools = ({ isOpen = true }: { isOpen?: boolean }) => {
 
   // Handle protocol change
   const handleProtocolChange = (newProtocol: string) => {
-    setSelectedProtocol(newProtocol);
+    setSelectedProtocol(newProtocol as ProtocolId);
     // Only reset pools if we've already searched
     if (shouldFetch) {
       setPools([]);
@@ -144,11 +123,6 @@ export const GetPools = ({ isOpen = true }: { isOpen?: boolean }) => {
     } else {
       return new Date(date).toLocaleString();
     }
-  };
-
-  // Get network name by ID
-  const getNetworkName = (networkId: string) => {
-    return EVM_NETWORKS.find(n => n.id === networkId)?.name || networkId;
   };
 
   return (
@@ -321,7 +295,7 @@ export const GetPools = ({ isOpen = true }: { isOpen?: boolean }) => {
                               <td>{formatDate(pool.datetime)}</td>
                               <td>
                                 <span className="badge badge-accent">
-                                  {pool.protocol === "uniswap_v3" ? "Uniswap V3" : "Uniswap V2"}
+                                  {formatProtocolDisplay(pool.protocol as ProtocolId)}
                                 </span>
                               </td>
                             </tr>

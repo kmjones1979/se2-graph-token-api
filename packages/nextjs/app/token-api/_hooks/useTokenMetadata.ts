@@ -1,36 +1,38 @@
 "use client";
 
-import { useTokenApi } from "./useTokenApi";
-import type { NetworkId } from "./useTokenApi";
+import { NetworkId, useTokenApi } from "./useTokenApi";
 
 /**
  * Token metadata information
  */
 export interface TokenMetadata {
-  name: string;
-  symbol: string;
-  decimals: number;
-  total_supply: string;
-  contract_address: string;
-  network_id: NetworkId;
-  block_number?: number;
-  block_timestamp?: number;
-  date?: string;
-  timestamp?: string;
+  contract_address?: string;
+  address?: string; // Alternative property name for contract_address
+  name?: string;
+  symbol?: string;
+  decimals?: number;
+  total_supply?: string;
   circulating_supply?: string;
+  block_number?: number;
+  block_num?: number; // Alternative property name for block_number
+  timestamp?: string;
+  datetime?: string; // Alternative format for timestamp
+  date?: string; // Another alternative for timestamp
+  block_timestamp?: number;
   holders?: number;
   logo_url?: string;
   icon?: {
     web3icon?: string;
   };
+  network_id?: NetworkId;
   market_data?: {
-    price_usd?: number;
-    fully_diluted_valuation?: number;
+    price_usd: number;
+    price_change_percentage_24h?: number;
     market_cap?: number;
     total_volume_24h?: number;
-    price_change_percentage_24h?: number;
   };
-  low_liquidity?: boolean;
+  // For handling responses that contain nested data arrays
+  data?: TokenMetadata[];
 }
 
 /**
@@ -68,17 +70,37 @@ export const useTokenMetadata = (
   // Normalize the contract address (ensure it has 0x prefix)
   const normalizedContract = contract && !contract.startsWith("0x") ? `0x${contract}` : contract;
 
-  const result = useTokenApi<TokenMetadata | { data: TokenMetadata[] }>(
-    normalizedContract ? `tokens/evm/${normalizedContract}` : "",
-    { ...params },
-    options,
-  );
+  const result = useTokenApi<any>(normalizedContract ? `tokens/evm/${normalizedContract}` : "", { ...params }, options);
 
-  // Handle both single object and data array responses
-  const formattedData =
-    result.data && "data" in result.data && Array.isArray(result.data.data)
-      ? result.data.data[0]
-      : (result.data as TokenMetadata);
+  // Debug the raw response
+  if (result.data) {
+    console.log("💡 Raw token metadata response:", result.data);
+  }
+
+  // Handle the various response formats properly
+  let formattedData: TokenMetadata | null = null;
+
+  if (result.data) {
+    // Case 1: Response is an array directly (as seen in the logs)
+    if (Array.isArray(result.data) && result.data.length > 0) {
+      formattedData = result.data[0];
+    }
+    // Case 2: Response is an object with data array property
+    else if (
+      typeof result.data === "object" &&
+      "data" in result.data &&
+      Array.isArray(result.data.data) &&
+      result.data.data.length > 0
+    ) {
+      formattedData = result.data.data[0];
+    }
+    // Case 3: Response is already the token metadata object
+    else if (typeof result.data === "object") {
+      formattedData = result.data as TokenMetadata;
+    }
+  }
+
+  console.log("💡 Formatted token metadata:", formattedData);
 
   return {
     ...result,

@@ -1,25 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { EVM_NETWORKS, getBlockExplorerTokenUrl, getNetworkName } from "~~/app/token-api/_config/networks";
 import { NetworkId } from "~~/app/token-api/_hooks/useTokenApi";
 import { TokenBalance, useTokenBalances } from "~~/app/token-api/_hooks/useTokenBalances";
-import { AddressInput } from "~~/components/scaffold-eth";
-
-// Define supported EVM networks
-interface EVMNetwork {
-  id: string;
-  name: string;
-  icon?: string;
-}
-
-const EVM_NETWORKS: EVMNetwork[] = [
-  { id: "mainnet", name: "Ethereum" },
-  { id: "base", name: "Base" },
-  { id: "arbitrum-one", name: "Arbitrum" },
-  { id: "bsc", name: "BSC" },
-  { id: "optimism", name: "Optimism" },
-  { id: "matic", name: "Polygon" },
-];
+import { Address, AddressInput } from "~~/components/scaffold-eth";
 
 export const GetBalances = ({ isOpen = true }: { isOpen?: boolean }) => {
   const [walletAddress, setWalletAddress] = useState<string>("");
@@ -29,10 +14,10 @@ export const GetBalances = ({ isOpen = true }: { isOpen?: boolean }) => {
   const [pageSize, setPageSize] = useState<number>(100);
   const [page, setPage] = useState<number>(1);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [shouldFetch, setShouldFetch] = useState<boolean>(false);
+  const processingData = useRef(false);
 
-  // We're using a direct fetch approach instead of the hook
-  // Skip the hook entirely to avoid any potential update cycles
-  /* 
+  // Use the hook with proper control
   const {
     data,
     isLoading: apiLoading,
@@ -45,108 +30,136 @@ export const GetBalances = ({ isOpen = true }: { isOpen?: boolean }) => {
       page_size: pageSize,
       page: page,
     },
-    { skip: true },
+    { skip: !shouldFetch }, // Only fetch when explicitly triggered
   );
-  */
+
+  // Handle data changes without causing infinite loops
+  useEffect(() => {
+    // Prevent processing if we're already handling data or no data exists
+    if (!data || processingData.current) return;
+
+    // Set the processing flag to prevent re-entry
+    processingData.current = true;
+
+    try {
+      console.log("📊 Received balances data from hook:", data);
+      setIsLoading(false);
+
+      // Check if data is an object with a data property
+      if (data && typeof data === "object" && "data" in data && Array.isArray((data as any).data)) {
+        const balancesArray = (data as any).data;
+        console.log("📊 Setting balances from nested data array:", balancesArray.length);
+
+        // Normalize the data to ensure consistent property names
+        const normalizedBalances = balancesArray.map((balance: any) => {
+          // Log original contract properties
+          console.log("Original token data:", {
+            contract_address: balance.contract_address,
+            contract: balance.contract,
+            address: balance.address,
+          });
+
+          const normalized = {
+            contract_address: balance.contract_address || balance.contract || balance.address || "",
+            amount: balance.amount || balance.balance || "0",
+            symbol: balance.symbol || "Unknown",
+            decimals: balance.decimals || 18,
+            name: balance.name || balance.token_name || balance.symbol || "Unknown Token",
+            amount_usd: balance.amount_usd || balance.value_usd || balance.value || 0,
+            network_id: balance.network_id || selectedNetwork,
+          };
+
+          console.log("Normalized contract_address:", normalized.contract_address);
+          return normalized;
+        });
+
+        setBalances(normalizedBalances);
+      }
+      // Check if data is directly an array
+      else if (Array.isArray(data)) {
+        console.log("📊 Setting balances from direct data array:", data.length);
+
+        // Normalize the data to ensure consistent property names
+        const normalizedBalances = data.map((balance: any) => {
+          // Log original contract properties
+          console.log("Original token data:", {
+            contract_address: balance.contract_address,
+            contract: balance.contract,
+            address: balance.address,
+          });
+
+          const normalized = {
+            contract_address: balance.contract_address || balance.contract || balance.address || "",
+            amount: balance.amount || balance.balance || "0",
+            symbol: balance.symbol || "Unknown",
+            decimals: balance.decimals || 18,
+            name: balance.name || balance.token_name || balance.symbol || "Unknown Token",
+            amount_usd: balance.amount_usd || balance.value_usd || balance.value || 0,
+            network_id: balance.network_id || selectedNetwork,
+          };
+
+          console.log("Normalized contract_address:", normalized.contract_address);
+          return normalized;
+        });
+
+        setBalances(normalizedBalances);
+      }
+      // Handle other cases
+      else {
+        console.log("No valid data found in response");
+        setBalances([]);
+      }
+    } catch (err) {
+      console.error("Error processing data from hook:", err);
+      setBalances([]);
+    } finally {
+      // Always release the processing flag after handling the data
+      setTimeout(() => {
+        processingData.current = false;
+      }, 100);
+    }
+  }, [data]);
+
+  // Handle API errors separately
+  useEffect(() => {
+    if (!apiError) return;
+
+    setIsLoading(false);
+    console.error("❌ API error from hook:", apiError);
+    setError(typeof apiError === "string" ? apiError : "Failed to fetch balances");
+  }, [apiError]);
 
   // Handle network change
   const handleNetworkChange = (newNetwork: string) => {
     setSelectedNetwork(newNetwork as NetworkId);
-    setBalances([]); // Clear existing balances
+
+    // Reset state
+    setBalances([]);
     setError(null);
+    setShouldFetch(false);
   };
 
-  // Manual fetch function - ignore hook data
+  // Trigger fetch using direct API call
   const fetchBalances = async () => {
     if (!walletAddress) {
       setError("Please enter an address");
       return;
     }
 
+    // Reset state before fetching
     setError(null);
     setBalances([]);
-    setIsLoading(true); // Manually set loading state
+    setIsLoading(true);
+    processingData.current = false;
+
+    // Enable fetching via the hook
+    setShouldFetch(true);
 
     try {
-      console.log(`🔍 Fetching balances for wallet: ${walletAddress}`);
-      console.log(`🔍 Using network: ${selectedNetwork}`);
-
-      // Ensure the address has 0x prefix
-      const formattedAddress = walletAddress.startsWith("0x") ? walletAddress : `0x${walletAddress}`;
-
-      // Define the API endpoint
-      const endpoint = `balances/evm/${formattedAddress}`;
-      console.log("🔍 API endpoint:", endpoint);
-
-      // Build the query parameters
-      const queryParams = new URLSearchParams();
-      queryParams.append("path", endpoint);
-      queryParams.append("network_id", selectedNetwork);
-      queryParams.append("page_size", pageSize.toString());
-      queryParams.append("page", page.toString());
-
-      // Call the API directly
-      const fullUrl = `/api/token-proxy?${queryParams.toString()}`;
-      console.log("🔍 Making direct API request to:", fullUrl);
-
-      try {
-        const response = await fetch(fullUrl);
-        console.log("🔍 API response status:", response.status);
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error("❌ API error response:", errorText);
-          throw new Error(`API request failed with status ${response.status}: ${errorText}`);
-        }
-
-        const jsonData = await response.json();
-        console.log("🔍 API response data:", jsonData);
-
-        // Process the response
-        if (jsonData.data && Array.isArray(jsonData.data)) {
-          console.log("📊 Setting balances from jsonData.data, count:", jsonData.data.length);
-
-          // Transform the data to match our TokenBalance interface
-          const mappedBalances = jsonData.data.map((balance: any) => ({
-            contract_address: balance.contract || balance.address || balance.contract_address,
-            amount: balance.amount || balance.balance || "0",
-            symbol: balance.symbol || "Unknown",
-            decimals: balance.decimals || 18,
-            name: balance.name,
-            amount_usd: balance.value_usd || balance.amount_usd,
-            network_id: balance.network_id || selectedNetwork,
-          }));
-
-          setBalances(mappedBalances);
-        } else if (Array.isArray(jsonData)) {
-          console.log("📊 Setting balances from array jsonData, count:", jsonData.length);
-
-          // Transform array data to match our interface
-          const mappedBalances = jsonData.map((balance: any) => ({
-            contract_address: balance.contract || balance.address || balance.contract_address,
-            amount: balance.amount || balance.balance || "0",
-            symbol: balance.symbol || "Unknown",
-            decimals: balance.decimals || 18,
-            name: balance.name,
-            amount_usd: balance.value_usd || balance.amount_usd,
-            network_id: balance.network_id || selectedNetwork,
-          }));
-
-          setBalances(mappedBalances);
-        } else {
-          console.log("⚠️ No token data found in response");
-          setBalances([]);
-        }
-      } catch (fetchError) {
-        console.error("❌ Fetch error:", fetchError);
-        throw fetchError;
-      }
+      // Optionally manually refetch the data
+      await refetch?.();
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "An error occurred";
-      console.error("❌ Error fetching balances:", err);
-      setError(errorMessage);
-    } finally {
-      setIsLoading(false); // Always reset loading state
+      console.error("Error triggering refetch:", err);
     }
   };
 
@@ -233,7 +246,7 @@ export const GetBalances = ({ isOpen = true }: { isOpen?: boolean }) => {
           {isLoading && (
             <div className="alert">
               <span className="loading loading-spinner loading-md"></span>
-              <span>Loading token balances on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}...</span>
+              <span>Loading token balances on {getNetworkName(selectedNetwork)}...</span>
             </div>
           )}
 
@@ -259,27 +272,35 @@ export const GetBalances = ({ isOpen = true }: { isOpen?: boolean }) => {
           {!isLoading && !error && walletAddress && (
             <div className="card bg-base-100 shadow-xl">
               <div className="card-body">
-                <h2 className="card-title mb-4">
-                  Token Balances on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}
-                </h2>
+                <h2 className="card-title mb-4">Token Balances on {getNetworkName(selectedNetwork)}</h2>
                 <div className="flex flex-col gap-2">
                   {balances && balances.length > 0 ? (
-                    balances.map((token, index) => (
-                      <div key={`${token.contract_address}-${index}`} className="card bg-base-200 shadow-sm">
-                        <div className="card-body p-4">
-                          <div className="flex flex-col">
-                            <div className="text-lg font-semibold">{token.symbol || "Unknown Token"}</div>
-                            <div className="text-xl">
-                              {formatBalance(token)} {token.symbol}
+                    balances.map((token, index) => {
+                      console.log(`Rendering token ${index}:`, token);
+                      return (
+                        <div key={`${token.contract_address}-${index}`} className="card bg-base-200 shadow-sm">
+                          <div className="card-body p-4">
+                            <div className="flex flex-col">
+                              <div className="text-lg font-semibold">{token.symbol || "Unknown Token"}</div>
+                              <div className="text-xl">
+                                {formatBalance(token)} {token.symbol}
+                              </div>
+                              {token.amount_usd && (
+                                <div className="text-sm text-success">${token.amount_usd.toFixed(2)}</div>
+                              )}
+                              <div className="text-xs opacity-70 mt-2">
+                                Contract:{" "}
+                                {token.contract_address ? (
+                                  <Address address={token.contract_address} format="short" />
+                                ) : (
+                                  "Unknown contract address"
+                                )}
+                              </div>
                             </div>
-                            {token.amount_usd && (
-                              <div className="text-sm text-success">${token.amount_usd.toFixed(2)}</div>
-                            )}
-                            <div className="text-xs opacity-70 mt-2">Contract: {token.contract_address}</div>
                           </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   ) : (
                     <div className="alert alert-info">
                       <svg
@@ -295,10 +316,7 @@ export const GetBalances = ({ isOpen = true }: { isOpen?: boolean }) => {
                           d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                         />
                       </svg>
-                      <span>
-                        No token balances found for this address on{" "}
-                        {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}
-                      </span>
+                      <span>No token balances found for this address on {getNetworkName(selectedNetwork)}</span>
                     </div>
                   )}
                 </div>

@@ -1,25 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getExampleTokenAddress } from "~~/app/token-api/_config/exampleTokens";
+import { EVM_NETWORKS, getNetworkName } from "~~/app/token-api/_config/networks";
 import { NetworkId } from "~~/app/token-api/_hooks/useTokenApi";
 import { TokenHolder, TokenHoldersResponse, useTokenHolders } from "~~/app/token-api/_hooks/useTokenHolders";
 import { Address, AddressInput } from "~~/components/scaffold-eth";
-
-// Define supported EVM networks
-interface EVMNetwork {
-  id: string;
-  name: string;
-  icon?: string;
-}
-
-const EVM_NETWORKS: EVMNetwork[] = [
-  { id: "mainnet", name: "Ethereum" },
-  { id: "base", name: "Base" },
-  { id: "arbitrum-one", name: "Arbitrum" },
-  { id: "bsc", name: "BSC" },
-  { id: "optimism", name: "Optimism" },
-  { id: "matic", name: "Polygon" },
-];
 
 // API response holder format (extends TokenHolder with additional fields)
 interface HolderItem {
@@ -97,16 +83,6 @@ export const GetHolders = ({ isOpen = true }: { isOpen?: boolean }) => {
     { skip: true }, // Skip initial fetch until explicitly triggered
   );
 
-  // Example token addresses for testing
-  const exampleTokens = {
-    mainnet: "0xc944E90C64B2c07662A292be6244BDf05Cda44a7", // GRT Token
-    "arbitrum-one": "0x912CE59144191C1204E64559FE8253a0e49E6548", // ARB Token
-    base: "0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22", // cbETH
-    bsc: "0x55d398326f99059fF775485246999027B3197955", // BSC-USD
-    optimism: "0x4200000000000000000000000000000000000042", // OP Token
-    matic: "0x0000000000000000000000000000000000001010", // MATIC
-  };
-
   // Handle network change
   const handleNetworkChange = (newNetwork: string) => {
     setSelectedNetwork(newNetwork as NetworkId);
@@ -162,15 +138,9 @@ export const GetHolders = ({ isOpen = true }: { isOpen?: boolean }) => {
         throw new Error(`No holders found for this token contract. Please verify:
           1. The contract address is correct
           2. The contract is an ERC20 token
-          3. The selected network is correct (currently: ${selectedNetwork})
+          3. The selected network is correct (currently: ${getNetworkName(selectedNetwork)})
           
-          Try these example tokens:
-          - Mainnet (GRT): ${exampleTokens.mainnet}
-          - Arbitrum (ARB): ${exampleTokens["arbitrum-one"]}
-          - Base (cbETH): ${exampleTokens.base}
-          - BSC (BSC-USD): ${exampleTokens.bsc}
-          - Optimism (OP): ${exampleTokens.optimism}
-          - Polygon (MATIC): ${exampleTokens.matic}`);
+          Try using example token: ${getExampleTokenAddress(selectedNetwork)}`);
       }
 
       if (!response.ok) {
@@ -317,7 +287,7 @@ export const GetHolders = ({ isOpen = true }: { isOpen?: boolean }) => {
                     placeholder="Enter token contract address"
                   />
                   <div className="mt-2 text-sm opacity-70">
-                    Example for {selectedNetwork}: {exampleTokens[selectedNetwork as keyof typeof exampleTokens]}
+                    Example for {getNetworkName(selectedNetwork)}: {getExampleTokenAddress(selectedNetwork)}
                   </div>
                 </div>
                 <div className="w-full">
@@ -391,7 +361,7 @@ export const GetHolders = ({ isOpen = true }: { isOpen?: boolean }) => {
           {isLoading && (
             <div className="alert">
               <span className="loading loading-spinner loading-md"></span>
-              <span>Loading token holders on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}...</span>
+              <span>Loading token holders on {getNetworkName(selectedNetwork)}...</span>
             </div>
           )}
 
@@ -417,9 +387,7 @@ export const GetHolders = ({ isOpen = true }: { isOpen?: boolean }) => {
           {!isLoading && !error && contractAddress && (
             <div className="card bg-base-100 shadow-xl">
               <div className="card-body">
-                <h2 className="card-title mb-4">
-                  Token Holders on {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}
-                </h2>
+                <h2 className="card-title mb-4">Token Holders on {getNetworkName(selectedNetwork)}</h2>
                 <div className="flex flex-col gap-2">
                   {holders && holders.length > 0 ? (
                     holders.map((holder, index) => (
@@ -471,10 +439,7 @@ export const GetHolders = ({ isOpen = true }: { isOpen?: boolean }) => {
                           d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                         />
                       </svg>
-                      <span>
-                        No token holders found for this contract on{" "}
-                        {EVM_NETWORKS.find(n => n.id === selectedNetwork)?.name}
-                      </span>
+                      <span>No token holders found for this contract on {getNetworkName(selectedNetwork)}</span>
                     </div>
                   )}
                 </div>
