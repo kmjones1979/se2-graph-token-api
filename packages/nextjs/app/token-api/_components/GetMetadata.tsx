@@ -14,11 +14,10 @@ export const GetMetadata = ({ isOpen = true }: { isOpen?: boolean }) => {
   const [error, setError] = useState<string | null>(null);
   const [shouldFetch, setShouldFetch] = useState<boolean>(false);
   const processingData = useRef(false);
-  const [tokenData, setTokenData] = useState<TokenMetadata | null>(null);
 
   // Use the hook with proper control
   const {
-    data: metadataResponse,
+    data: tokenData,
     isLoading,
     error: hookError,
     refetch,
@@ -30,34 +29,6 @@ export const GetMetadata = ({ isOpen = true }: { isOpen?: boolean }) => {
     },
     { skip: !shouldFetch }, // Skip initial fetch until explicitly triggered
   );
-
-  // Process data from the hook when it's available
-  useEffect(() => {
-    if (!metadataResponse || processingData.current) return;
-
-    processingData.current = true;
-
-    try {
-      console.log("📊 Received metadata from hook:", metadataResponse);
-
-      // Check if data is in a nested array
-      if (metadataResponse.data && Array.isArray(metadataResponse.data) && metadataResponse.data.length > 0) {
-        // Extract token data from the first item in the array
-        console.log("Found nested data array, using first item");
-        setTokenData(metadataResponse.data[0]);
-      } else {
-        // Use the response directly if it's not nested
-        console.log("Using direct response data");
-        setTokenData(metadataResponse);
-      }
-    } catch (err) {
-      console.error("❌ Error processing metadata:", err);
-    } finally {
-      setTimeout(() => {
-        processingData.current = false;
-      }, 100);
-    }
-  }, [metadataResponse]);
 
   // Handle API errors separately
   useEffect(() => {
@@ -84,7 +55,6 @@ export const GetMetadata = ({ isOpen = true }: { isOpen?: boolean }) => {
     setSelectedNetwork(newNetwork as NetworkId);
     setError(null);
     setShouldFetch(false);
-    setTokenData(null);
   };
 
   const fetchMetadata = async () => {
@@ -102,7 +72,6 @@ export const GetMetadata = ({ isOpen = true }: { isOpen?: boolean }) => {
     // Reset state before fetching
     setError(null);
     processingData.current = false;
-    setTokenData(null);
     setShouldFetch(true);
 
     try {
