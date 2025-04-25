@@ -161,26 +161,28 @@ export default function YourComponent() {
 
 ### Token Transfers Component
 
-Tracks token transfer events with detailed information.
+Displays token balances formatted as transfers with proper decimal formatting.
 
 ```typescript
-// Example usage
 import { GetTransfers } from "~~/app/token-api/_components/GetTransfers";
 
-export default function YourComponent() {
-    return (
-        <div>
-            <GetTransfers />
-            {/* With custom parameters */}
-            <GetTransfers
-                initialAddress="0x1234..."
-                initialNetwork="base"
-                isOpen={true}
-            />
-        </div>
-    );
-}
+// Basic usage
+<GetTransfers />
+
+// With custom address/contract and network
+<GetTransfers
+  initialAddress="0x1234..."
+  initialNetwork="base"
+  isOpen={true}
+/>
 ```
+
+**Features:**
+
+-   Shows token contract addresses instead of "from" addresses
+-   Formats token amounts properly based on token decimals
+-   Displays both formatted and raw amounts when they differ
+-   Connects to the balances API endpoint to fetch token data
 
 ### Token Metadata Component
 
@@ -395,16 +397,16 @@ The API supports the following networks:
 
 The components interact with these Token API endpoints:
 
-| Component         | Endpoint                             | Description              |
-| ----------------- | ------------------------------------ | ------------------------ |
-| GetMetadata       | `/tokens/evm/{contract}`             | Retrieves token metadata |
-| GetBalances       | `/balances/evm/{address}`            | Fetches token balances   |
-| GetTransfers      | `/transfers/evm/{address}`           | Lists token transfers    |
-| GetHolders        | `/holders/evm/{contract}`            | Shows token holders      |
-| GetHistorical     | `/historical/balances/evm/{address}` | Historical balance data  |
-| GetOHLCByPool     | `/ohlc/pools/evm/{pool}`             | Price history for pools  |
-| GetOHLCByContract | `/ohlc/prices/evm/{contract}`        | Price history for tokens |
-| GetSwaps          | `/swaps/evm`                         | DEX swap events          |
+| Component         | Endpoint                             | Description                    |
+| ----------------- | ------------------------------------ | ------------------------------ |
+| GetMetadata       | `/tokens/evm/{contract}`             | Retrieves token metadata       |
+| GetBalances       | `/balances/evm/{address}`            | Fetches token balances         |
+| GetTransfers      | `/balances/evm/{address}`            | Displays balances as transfers |
+| GetHolders        | `/holders/evm/{contract}`            | Shows token holders            |
+| GetHistorical     | `/historical/balances/evm/{address}` | Historical balance data        |
+| GetOHLCByPool     | `/ohlc/pools/evm/{pool}`             | Price history for pools        |
+| GetOHLCByContract | `/ohlc/prices/evm/{contract}`        | Price history for tokens       |
+| GetSwaps          | `/swaps/evm`                         | DEX swap events                |
 
 ## 📝 Key Data Structures
 
@@ -915,7 +917,9 @@ Fetches DEX swap events across supported networks.
 import { useTokenSwaps } from "~~/app/token-api/_hooks/useTokenSwaps";
 
 // Basic usage
-const { data: swaps } = useTokenSwaps();
+const { data: swaps } = useTokenSwaps({
+    network_id: "mainnet",
+});
 
 // With parameters
 const { data: swaps } = useTokenSwaps({
@@ -930,16 +934,60 @@ const { data: swaps } = useTokenSwaps({
 
 -   `params`: Optional filter parameters
     -   `network_id`: Network identifier
-    -   `pool_address`: Filter by specific pool address
-    -   `token_address`: Filter by specific token address
-    -   `min_value_usd`: Minimum USD value of swap
+    -   `pool`: Filter by specific pool address
+    -   `caller`: Filter by caller address
+    -   `sender`: Filter by sender address
+    -   `recipient`: Filter by recipient address
+    -   `tx_hash`: Filter by transaction hash
+    -   `protocol`: Filter by protocol (e.g., "uniswap_v3")
     -   `page`: Page number for pagination
     -   `page_size`: Number of results per page
 -   `options`: Hook options
 
 **Returns:**
 
--   Same as useTokenApi, with `data` being an array of Swap event objects
+-   Same as useTokenApi, with `data` being an array of Swap objects with the following structure:
+
+```typescript
+interface Swap {
+    block_num: number;
+    datetime: string;
+    transaction_id: string;
+    caller: string;
+    pool: string;
+    factory?: string;
+    sender: string;
+    recipient: string;
+    network_id: string;
+    amount0: string; // Raw token0 amount
+    amount1: string; // Raw token1 amount
+    token0?:
+        | {
+              // Token0 information
+              address: string; // Token0 contract address
+              symbol: string; // Token0 symbol
+              decimals: number; // Token0 decimals
+          }
+        | string;
+    token1?:
+        | {
+              // Token1 information
+              address: string; // Token1 contract address
+              symbol: string; // Token1 symbol
+              decimals: number; // Token1 decimals
+          }
+        | string;
+    token0_symbol?: string; // Legacy field
+    token1_symbol?: string; // Legacy field
+    amount0_usd?: number; // USD value of token0 amount
+    amount1_usd?: number; // USD value of token1 amount
+    value0?: number; // Formatted token0 value
+    value1?: number; // Formatted token1 value
+    price0?: number; // Token0 price
+    price1?: number; // Token1 price
+    protocol?: string; // Protocol name (e.g., "uniswap_v3")
+}
+```
 
 ### useTokenPools
 
@@ -1014,7 +1062,7 @@ import { GetBalances } from "~~/app/token-api/_components/GetBalances";
 
 ### GetTransfers Component
 
-Displays token transfer events with filtering options.
+Displays token balances formatted as transfers with proper decimal formatting.
 
 ```typescript
 import { GetTransfers } from "~~/app/token-api/_components/GetTransfers";
@@ -1029,6 +1077,13 @@ import { GetTransfers } from "~~/app/token-api/_components/GetTransfers";
   isOpen={true}
 />
 ```
+
+**Features:**
+
+-   Shows token contract addresses instead of "from" addresses
+-   Formats token amounts properly based on token decimals
+-   Displays both formatted and raw amounts when they differ
+-   Connects to the balances API endpoint to fetch token data
 
 ### GetMetadata Component
 

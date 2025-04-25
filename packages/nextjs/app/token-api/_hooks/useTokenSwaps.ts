@@ -11,17 +11,35 @@ export interface Swap {
   transaction_id: string;
   caller: string;
   pool: string;
+  factory?: string;
   sender: string;
   recipient: string;
   network_id: string;
   amount0: string;
   amount1: string;
-  token0?: string;
-  token1?: string;
+  token0?:
+    | {
+        address: string;
+        symbol: string;
+        decimals: number;
+      }
+    | string;
+  token1?:
+    | {
+        address: string;
+        symbol: string;
+        decimals: number;
+      }
+    | string;
   token0_symbol?: string;
   token1_symbol?: string;
   amount0_usd?: number;
   amount1_usd?: number;
+  value0?: number;
+  value1?: number;
+  price0?: number;
+  price1?: number;
+  protocol?: string;
 }
 
 /**

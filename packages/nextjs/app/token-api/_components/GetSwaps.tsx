@@ -132,8 +132,8 @@ export const GetSwaps = ({ isOpen = true }: { isOpen?: boolean }) => {
     }
   };
 
-  // Format amount with token decimals (this is a simplification as we don't know the decimals)
-  const formatAmount = (amount?: string) => {
+  // Update the formatAmount function to handle decimals properly
+  const formatAmount = (amount?: string, decimals: number = 18) => {
     // Handle undefined or null amount
     if (!amount) return "No amount";
 
@@ -141,10 +141,70 @@ export const GetSwaps = ({ isOpen = true }: { isOpen?: boolean }) => {
     const isNegative = amount.startsWith("-");
     const absoluteAmount = isNegative ? amount.substring(1) : amount;
 
-    // Format with commas for readability
-    const formattedAmount = new Intl.NumberFormat().format(Number(absoluteAmount));
+    try {
+      // Convert to a decimal value based on decimals
+      const value = BigInt(absoluteAmount) / BigInt(10 ** decimals);
+      const valueNumber = Number(value);
 
-    return isNegative ? `-${formattedAmount}` : formattedAmount;
+      // Format with commas for readability
+      const formattedAmount = valueNumber.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 6,
+      });
+
+      return isNegative ? `-${formattedAmount}` : formattedAmount;
+    } catch (e) {
+      console.error("Error formatting amount:", e);
+      // Fallback to simple format
+      const formattedAmount = new Intl.NumberFormat().format(Number(absoluteAmount));
+      return isNegative ? `-${formattedAmount}` : formattedAmount;
+    }
+  };
+
+  // Helper to safely get token symbol
+  const getTokenSymbol = (token: any): string => {
+    if (!token) return "Unknown";
+
+    // If token is an object with symbol property
+    if (typeof token === "object" && token.symbol) {
+      return token.symbol;
+    }
+
+    // If token is a string (old format)
+    if (typeof token === "string") {
+      return token;
+    }
+
+    return "Unknown";
+  };
+
+  // Helper to safely get token address
+  const getTokenAddress = (token: any): string => {
+    if (!token) return "";
+
+    // If token is an object with address property
+    if (typeof token === "object" && token.address) {
+      return token.address;
+    }
+
+    // If token is a string (old format - assume it's the address)
+    if (typeof token === "string") {
+      return token;
+    }
+
+    return "";
+  };
+
+  // Helper to safely get token decimals
+  const getTokenDecimals = (token: any): number => {
+    if (!token) return 18;
+
+    // If token is an object with decimals property
+    if (typeof token === "object" && token.decimals !== undefined) {
+      return Number(token.decimals);
+    }
+
+    return 18; // Default decimals
   };
 
   // Get network name by ID
@@ -427,10 +487,15 @@ export const GetSwaps = ({ isOpen = true }: { isOpen?: boolean }) => {
                           <td>{swap.datetime ? formatDate(swap.datetime) : "No timestamp"}</td>
                           <td>
                             <div className="flex flex-col">
-                              <span>{formatAmount(swap.amount0)}</span>
-                              <span className="text-xs text-opacity-70">
-                                {swap.token0_symbol || swap.token0 || "Token 0"}
+                              <span>
+                                {swap.value0 !== undefined
+                                  ? Number(swap.value0).toLocaleString(undefined, {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 6,
+                                    })
+                                  : formatAmount(swap.amount0, getTokenDecimals(swap.token0))}
                               </span>
+                              <span className="text-xs text-opacity-70">{getTokenSymbol(swap.token0)}</span>
                               {swap.amount0_usd && (
                                 <span className="text-xs text-success">${Number(swap.amount0_usd).toFixed(2)}</span>
                               )}
@@ -438,10 +503,15 @@ export const GetSwaps = ({ isOpen = true }: { isOpen?: boolean }) => {
                           </td>
                           <td>
                             <div className="flex flex-col">
-                              <span>{formatAmount(swap.amount1)}</span>
-                              <span className="text-xs text-opacity-70">
-                                {swap.token1_symbol || swap.token1 || "Token 1"}
+                              <span>
+                                {swap.value1 !== undefined
+                                  ? Number(swap.value1).toLocaleString(undefined, {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 6,
+                                    })
+                                  : formatAmount(swap.amount1, getTokenDecimals(swap.token1))}
                               </span>
+                              <span className="text-xs text-opacity-70">{getTokenSymbol(swap.token1)}</span>
                               {swap.amount1_usd && (
                                 <span className="text-xs text-success">${Number(swap.amount1_usd).toFixed(2)}</span>
                               )}
