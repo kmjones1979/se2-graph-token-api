@@ -4,24 +4,31 @@ import { useEffect, useRef, useState } from "react";
 import { EVM_NETWORKS, getNetworkName } from "~~/app/token-api/_config/networks";
 import { TIME_INTERVALS, TIME_SPANS, getTimeRange } from "~~/app/token-api/_config/timeConfig";
 import { NetworkId } from "~~/app/token-api/_hooks/useTokenApi";
-import { OHLCDataPoint, PoolOHLCParams, useTokenOHLCByPool } from "~~/app/token-api/_hooks/useTokenOHLCByPool";
+import {
+  OHLCDataPoint,
+  PoolOHLCParams,
+  PoolOHLCResponse,
+  useTokenOHLCByPool,
+} from "~~/app/token-api/_hooks/useTokenOHLCByPool";
 import { Address, AddressInput } from "~~/components/scaffold-eth";
 
-// Example pool addresses
-const examplePools: Record<string, string> = {
-  mainnet: "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640", // ETH/USDC on Uniswap V3
-  base: "0x4c36388be6f416a29c8d8eee81c771ce6be14b18", // ETH/USDbC on BaseSwap
-  "arbitrum-one": "0xc31e54c7a869b9fcbecc14363cf510d1c41fa443", // ETH/USDC on Uniswap V3
-  bsc: "0x58f876857a02d6762e0101bb5c46a8c1ed44dc16", // BNB/BUSD on PancakeSwap
-  optimism: "0x85149247691df622eaf1a8bd0cafd40bc45154a9", // ETH/USDC on Uniswap V3
-  matic: "0xa374094527e1673a86de625aa59517c5de346d32", // MATIC/USDC on Quickswap
-};
-
 // Extended OHLC data interface for our component
-interface OHLCDataExtended extends OHLCDataPoint {
+interface OHLCDataExtended extends Partial<OHLCDataPoint> {
   datetime?: string;
   network_id?: string;
-  pair?: string;
+  pool?: string;
+}
+
+// Extended response interface to handle alternative API format
+interface ExtendedPoolOHLCResponse extends PoolOHLCResponse {
+  data?: any[];
+  statistics?: {
+    token0_symbol?: string;
+    token0_address?: string;
+    token1_symbol?: string;
+    token1_address?: string;
+    protocol?: string;
+  };
 }
 
 export const GetOHLCByPool = ({ isOpen = true }: { isOpen?: boolean }) => {
@@ -31,108 +38,207 @@ export const GetOHLCByPool = ({ isOpen = true }: { isOpen?: boolean }) => {
   const [selectedInterval, setSelectedInterval] = useState<PoolOHLCParams["resolution"]>("1d");
   const [selectedTimeSpan, setSelectedTimeSpan] = useState<string>("30d");
   const [page, setPage] = useState<number>(1);
-  const [limit, setLimit] = useState<number>(10);
+  const [pageSize, setPageSize] = useState<number>(10);
   const [shouldFetch, setShouldFetch] = useState<boolean>(false);
   const processingData = useRef(false);
 
   // State for API results
   const [ohlcData, setOhlcData] = useState<OHLCDataExtended[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [totalPages, setTotalPages] = useState<number>(1);
   const [poolInfo, setPoolInfo] = useState<{
-    token0Symbol?: string;
-    token1Symbol?: string;
+    token0_symbol?: string;
+    token1_symbol?: string;
     protocol?: string;
   } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [totalPages, setTotalPages] = useState<number>(1);
 
-  // Use the hook properly with a controlled skip parameter
+  // Get time range based on selected time span
   const { startTime, endTime } = getTimeRange(selectedTimeSpan);
+
+  // Use the hook to fetch OHLC data
   const {
-    data,
-    isLoading: hookLoading,
+    data: responseData,
+    isLoading,
     error: hookError,
     refetch,
   } = useTokenOHLCByPool(
     poolAddress,
     {
       network_id: selectedNetwork,
-      resolution: selectedInterval,
       from_timestamp: startTime,
       to_timestamp: endTime,
+      resolution: selectedInterval,
     },
-    { skip: !shouldFetch }, // Only fetch when explicitly triggered
+    { skip: !shouldFetch },
   );
 
   // Process data from the hook when it's available
   useEffect(() => {
-    if (!data || processingData.current) return;
+    if (!responseData || processingData.current) return;
 
     // Set the processing flag to prevent re-entry
     processingData.current = true;
 
     try {
-      console.log("📊 Received OHLC data from hook:", data);
+      // Log the complete raw response to see exactly what we're getting
+      console.log("🔍 COMPLETE RAW RESPONSE:", responseData);
 
-      if (data.ohlc && Array.isArray(data.ohlc)) {
-        // Convert the data to our expected format
-        const formattedData = data.ohlc.map(item => ({
+      // Check if responseData is an array (direct array response)
+      if (Array.isArray(responseData)) {
+        console.log("📊 Processing direct array response");
+
+        // Process the data array
+        const formattedData = responseData.map((item: any) => {
+          const timestamp =
+            item.timestamp || (item.datetime ? new Date(item.datetime).getTime() / 1000 : Date.now() / 1000);
+          return {
+            timestamp,
+            open: typeof item.open === "string" ? parseFloat(item.open) : item.open || 0,
+            high: typeof item.high === "string" ? parseFloat(item.high) : item.high || 0,
+            low: typeof item.low === "string" ? parseFloat(item.low) : item.low || 0,
+            close: typeof item.close === "string" ? parseFloat(item.close) : item.close || 0,
+            volume_token0: item.volume_token0 || item.volume || 0,
+            volume_token1: item.volume_token1 || 0,
+            volume_usd: item.volume_usd,
+            datetime: new Date(timestamp * 1000).toISOString(),
+            network_id: selectedNetwork,
+            pool: poolAddress,
+          };
+        });
+
+        if (formattedData.length > 0) {
+          console.log("✅ Successfully processed array data with", formattedData.length, "entries");
+          setOhlcData(formattedData);
+
+          // For direct array response, we don't have token info, so use defaults
+          setPoolInfo({
+            token0_symbol: "Token0",
+            token1_symbol: "Token1",
+            protocol: "Unknown",
+          });
+
+          // Estimate total pages based on data length
+          setTotalPages(Math.ceil(responseData.length / pageSize) || 1);
+
+          // Stop triggering more fetches
+          setShouldFetch(false);
+        }
+      }
+      // Check if we have the original expected format
+      else if (responseData.ohlc && Array.isArray(responseData.ohlc) && responseData.ohlc.length > 0) {
+        console.log("📈 Processing data using the expected ohlc format");
+        const formattedData = responseData.ohlc.map((item: OHLCDataPoint) => ({
           ...item,
-          // Convert timestamp to datetime string for display
           datetime: new Date(item.timestamp * 1000).toISOString(),
-          network_id: data.network_id,
-          // Create pair name from token symbols if available
-          pair: data.token0_symbol && data.token1_symbol ? `${data.token0_symbol}/${data.token1_symbol}` : undefined,
+          network_id: selectedNetwork,
+          pool: poolAddress,
         }));
 
         setOhlcData(formattedData);
 
-        // Set pool info if available
-        if (data.token0_symbol || data.token1_symbol || data.protocol) {
-          setPoolInfo({
-            token0Symbol: data.token0_symbol,
-            token1Symbol: data.token1_symbol,
-            protocol: data.protocol,
-          });
+        // Set pool token information
+        setPoolInfo({
+          token0_symbol: responseData.token0_symbol || "Token0",
+          token1_symbol: responseData.token1_symbol || "Token1",
+          protocol: responseData.protocol || "Unknown",
+        });
+
+        // Handle pagination if available
+        if (responseData.pagination) {
+          setTotalPages(responseData.pagination.total_pages || 1);
+        } else {
+          setTotalPages(Math.ceil(responseData.ohlc.length / pageSize) || 1);
         }
 
-        // Handle pagination
-        setTotalPages(Math.ceil(data.ohlc.length / limit) || 1);
-      } else {
-        console.log("⚠️ No OHLC data found in response or unexpected format");
+        // Stop triggering more fetches
+        setShouldFetch(false);
+      }
+      // Check if the data is directly in the response (no nesting)
+      else if ((responseData as any).data && Array.isArray((responseData as any).data)) {
+        console.log("📊 Processing data from response.data array");
+        const dataArray = (responseData as any).data;
+        const statistics = (responseData as any).statistics || {};
+
+        // Process the data array
+        const formattedData = dataArray.map((item: any) => {
+          const timestamp =
+            item.timestamp || (item.datetime ? new Date(item.datetime).getTime() / 1000 : Date.now() / 1000);
+          return {
+            timestamp,
+            open: typeof item.open === "string" ? parseFloat(item.open) : item.open || 0,
+            high: typeof item.high === "string" ? parseFloat(item.high) : item.high || 0,
+            low: typeof item.low === "string" ? parseFloat(item.low) : item.low || 0,
+            close: typeof item.close === "string" ? parseFloat(item.close) : item.close || 0,
+            volume_token0: item.volume_token0 || item.volume || 0,
+            volume_token1: item.volume_token1 || 0,
+            volume_usd: item.volume_usd,
+            datetime: new Date(timestamp * 1000).toISOString(),
+            network_id: selectedNetwork,
+            pool: poolAddress,
+          };
+        });
+
+        // Only update state if we actually have data to display
+        if (formattedData.length > 0) {
+          console.log("✅ Successfully processed data with", formattedData.length, "entries");
+          setOhlcData(formattedData);
+
+          // Set token info from the response if available
+          setPoolInfo({
+            token0_symbol: statistics.token0_symbol || "Token0",
+            token1_symbol: statistics.token1_symbol || "Token1",
+            protocol: statistics.protocol || "Unknown",
+          });
+
+          // Handle pagination
+          if ((responseData as any).pagination) {
+            setTotalPages((responseData as any).pagination.total_pages || 1);
+          } else {
+            setTotalPages(Math.ceil(dataArray.length / pageSize) || 1);
+          }
+
+          // Stop triggering more fetches
+          setShouldFetch(false);
+        } else {
+          console.warn("⚠️ Data array was empty");
+          setOhlcData([]);
+          setPoolInfo(null);
+          // Stop fetching if there's no data to avoid loops
+          setShouldFetch(false);
+        }
+      }
+      // No recognizable data format found
+      else {
+        console.log("⚠️ No pool OHLC data found in response or unexpected format");
         setOhlcData([]);
         setPoolInfo(null);
+        // Stop fetching to avoid loops
+        setShouldFetch(false);
       }
     } catch (err) {
-      console.error("❌ Error processing OHLC data:", err);
+      console.error("❌ Error processing pool OHLC data:", err);
+      setError(`Error processing data: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
-      // Always release the processing flag after handling the data
+      // Release the processing flag after a longer delay to avoid race conditions
       setTimeout(() => {
         processingData.current = false;
-      }, 100);
+      }, 1000);
     }
-  }, [data, limit]);
+  }, [responseData, pageSize, selectedNetwork, poolAddress]);
 
-  // Handle API errors separately
+  // Handle API errors
   useEffect(() => {
     if (!hookError) return;
 
     console.error("❌ API error from hook:", hookError);
-    const errorMessage = typeof hookError === "string" ? hookError : "Failed to fetch OHLC data";
+    const errorMessage = typeof hookError === "string" ? hookError : "Failed to fetch pool OHLC data";
 
     // Custom error message for 404 responses
     if (errorMessage.includes("404") || errorMessage.includes("not found")) {
-      setError(`No OHLC data found for this liquidity pool. Please verify:
+      setError(`No OHLC data found for this pool. Please verify:
         1. The pool address is correct
-        2. The pool has trading activity
-        3. The selected network is correct (currently: ${getNetworkName(selectedNetwork)})
-        
-        Try these example pools:
-        - Mainnet (ETH/USDC): ${examplePools.mainnet}
-        - Base (ETH/USDbC): ${examplePools.base}
-        - Arbitrum (ETH/USDC): ${examplePools["arbitrum-one"]}
-        - BSC (BNB/BUSD): ${examplePools.bsc}
-        - Optimism (ETH/USDC): ${examplePools.optimism}
-        - Polygon (MATIC/USDC): ${examplePools.matic}`);
+        2. The pool exists on the selected network (currently: ${getNetworkName(selectedNetwork)})
+        3. The pool has sufficient trading activity`);
     } else {
       setError(errorMessage);
     }
@@ -144,7 +250,6 @@ export const GetOHLCByPool = ({ isOpen = true }: { isOpen?: boolean }) => {
     setOhlcData([]);
     setError(null);
     setPage(1);
-    setPoolInfo(null);
     setShouldFetch(false);
   };
 
@@ -153,95 +258,91 @@ export const GetOHLCByPool = ({ isOpen = true }: { isOpen?: boolean }) => {
     setSelectedInterval(newInterval);
     setOhlcData([]);
     setError(null);
-    setShouldFetch(false);
+    setPage(1);
   };
 
+  // Fetch OHLC data
   const fetchOHLCData = async () => {
     if (!poolAddress) {
       setError("Please enter a pool address");
       return;
     }
 
-    // Basic validation for Ethereum address format
-    if (!/^0x[a-fA-F0-9]{40}$/.test(poolAddress)) {
-      setError("Please enter a valid pool address");
-      return;
-    }
-
-    // Reset state before fetching
+    // Reset state
     setError(null);
     setOhlcData([]);
-    setPoolInfo(null);
+    setPage(1);
+
+    // Reset processing flag to ensure we can process the new data
     processingData.current = false;
-    setShouldFetch(true);
 
+    // Set shouldFetch to false first to ensure a clean state
+    setShouldFetch(false);
+
+    // Use setTimeout to ensure state updates before setting to true
+    setTimeout(() => {
+      setShouldFetch(true);
+      // Manually trigger refetch
+      refetch();
+    }, 100);
+  };
+
+  // Format date for display
+  const formatDate = (dateStr: string | undefined) => {
+    if (!dateStr) return "N/A";
     try {
-      // Use the refetch function from the hook
-      await refetch();
+      const date = new Date(dateStr);
+      return date.toLocaleString();
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "An error occurred";
-      console.error("❌ Error fetching OHLC data:", err);
-      setError(errorMessage);
+      return "Invalid Date";
     }
   };
 
-  // Format date
-  const formatDate = (dateStr: string | number | undefined) => {
-    if (typeof dateStr === "undefined") {
-      return new Date().toLocaleString(); // Default to current date if undefined
-    }
-    if (typeof dateStr === "number") {
-      return new Date(dateStr * 1000).toLocaleString();
-    }
-    return new Date(dateStr).toLocaleString();
-  };
-
-  // Format price
-  const formatPrice = (price: number) => {
-    return price.toLocaleString(undefined, {
+  // Format price for display
+  const formatPrice = (price: number | undefined) => {
+    if (price === undefined) return "N/A";
+    return new Intl.NumberFormat("en-US", {
       minimumFractionDigits: 2,
-      maximumFractionDigits: 6,
-    });
+      maximumFractionDigits: 8,
+    }).format(price);
   };
 
-  // Format volume
-  const formatVolume = (volume: number) => {
-    return volume.toLocaleString(undefined, {
-      minimumFractionDigits: 0,
+  // Format volume for display
+  const formatVolume = (volume: number | undefined) => {
+    if (volume === undefined) return "N/A";
+    return new Intl.NumberFormat("en-US", {
+      minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    });
+    }).format(volume);
   };
 
-  // Handle pagination
+  // Pagination handlers
   const goToNextPage = () => {
     if (page < totalPages) {
-      const newPage = page + 1;
-      setPage(newPage);
+      setPage(prev => prev + 1);
     }
   };
 
   const goToPrevPage = () => {
     if (page > 1) {
-      const newPage = page - 1;
-      setPage(newPage);
+      setPage(prev => prev - 1);
     }
   };
 
-  // Price change percentage calculation
-  const calculatePriceChange = (open: number, close: number) => {
-    if (open === 0) return 0;
-    const change = ((close - open) / open) * 100;
-    return change.toFixed(2);
+  // Calculate price change percentage
+  const calculatePriceChange = (open: number | undefined, close: number | undefined) => {
+    if (open === undefined || close === undefined || open === 0) return null;
+    const percentChange = ((close - open) / open) * 100;
+    return percentChange;
   };
 
-  // Filter data based on current page
-  const paginatedData = ohlcData.slice((page - 1) * limit, page * limit);
+  if (!isOpen) return null;
 
   return (
     <details className="collapse bg-blue-500/20 shadow-lg mb-4 rounded-xl border border-blue-500/30" open={isOpen}>
       <summary className="collapse-title text-xl font-bold cursor-pointer hover:bg-base-300">
         <div className="flex justify-between items-center">
-          <span>📊 Pool OHLC Data - View price history for token pools</span>
+          <span>📈 Pool OHLC Price Data - View price charts for any liquidity pool</span>
           <svg
             xmlns="http://www.w3.org/2000/svg"
             className="h-6 w-6 transform transition-transform duration-200 details-toggle"
@@ -261,25 +362,28 @@ export const GetOHLCByPool = ({ isOpen = true }: { isOpen?: boolean }) => {
       `}</style>
       <div className="collapse-content">
         <div className="flex flex-col gap-6">
+          {/* Input Card */}
           <div className="card bg-base-100 shadow-xl">
             <div className="card-body">
               <div className="flex flex-col gap-4">
+                {/* Pool Address Input */}
                 <div className="w-full">
                   <label className="label">
                     <span className="label-text text-xl font-bold">Enter Pool Address</span>
                   </label>
                   <AddressInput
                     value={poolAddress}
-                    onChange={setPoolAddress}
-                    placeholder="Enter the DEX pool address"
+                    onChange={value => {
+                      setPoolAddress(value);
+                      setShouldFetch(false);
+                    }}
+                    placeholder="Enter pool address (0x...)"
                   />
-                  <div className="mt-2 text-sm opacity-70">
-                    Example for {getNetworkName(selectedNetwork)}:{" "}
-                    {examplePools[selectedNetwork as keyof typeof examplePools]}
-                  </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="w-full">
+
+                {/* Filters */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="form-control">
                     <label className="label">
                       <span className="label-text text-base">Network</span>
                     </label>
@@ -295,7 +399,8 @@ export const GetOHLCByPool = ({ isOpen = true }: { isOpen?: boolean }) => {
                       ))}
                     </select>
                   </div>
-                  <div className="w-full">
+
+                  <div className="form-control">
                     <label className="label">
                       <span className="label-text text-base">Interval</span>
                     </label>
@@ -311,11 +416,10 @@ export const GetOHLCByPool = ({ isOpen = true }: { isOpen?: boolean }) => {
                       ))}
                     </select>
                   </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="w-full">
+
+                  <div className="form-control">
                     <label className="label">
-                      <span className="label-text text-base">Time Period</span>
+                      <span className="label-text text-base">Time Range</span>
                     </label>
                     <select
                       className="select select-bordered w-full"
@@ -329,41 +433,75 @@ export const GetOHLCByPool = ({ isOpen = true }: { isOpen?: boolean }) => {
                       ))}
                     </select>
                   </div>
-                  <div className="w-full">
-                    <label className="label">
-                      <span className="label-text text-base">Results per Page</span>
-                    </label>
-                    <select
-                      className="select select-bordered w-full"
-                      value={limit}
-                      onChange={e => setLimit(Number(e.target.value))}
-                    >
-                      <option value={10}>10 Records</option>
-                      <option value={25}>25 Records</option>
-                      <option value={50}>50 Records</option>
-                    </select>
-                  </div>
                 </div>
               </div>
               <div className="card-actions justify-end mt-4">
                 <button
-                  className={`btn btn-primary ${hookLoading ? "loading" : ""}`}
+                  className={`btn btn-primary ${isLoading ? "loading" : ""}`}
                   onClick={fetchOHLCData}
-                  disabled={hookLoading || !poolAddress}
+                  disabled={isLoading || !poolAddress}
                 >
-                  {hookLoading ? "Fetching..." : "Fetch OHLC Data"}
+                  {isLoading ? "Fetching..." : "Fetch OHLC Data"}
                 </button>
               </div>
             </div>
           </div>
 
-          {hookLoading && (
+          {/* Examples Section */}
+          <div className="card bg-base-100 shadow-xl">
+            <div className="card-body">
+              <h3 className="card-title text-lg">Examples</h3>
+              <p className="text-sm opacity-70 mb-2">Click an example to try it:</p>
+              <div className="flex flex-col gap-2">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                  <span className="font-medium text-sm">Uniswap V3 ETH/USDC Pool (Mainnet): </span>
+                  <button
+                    className="btn btn-sm btn-outline"
+                    onClick={() => {
+                      setPoolAddress("0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640");
+                      setSelectedNetwork("mainnet");
+                    }}
+                  >
+                    0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640
+                  </button>
+                </div>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                  <span className="font-medium text-sm">Uniswap V3 WETH/USDT Pool (Arbitrum): </span>
+                  <button
+                    className="btn btn-sm btn-outline"
+                    onClick={() => {
+                      setPoolAddress("0x641c00a822ea9bb7d9a1e7e4eff8f7e39f9db213");
+                      setSelectedNetwork("arbitrum-one");
+                    }}
+                  >
+                    0x641c00a822ea9bb7d9a1e7e4eff8f7e39f9db213
+                  </button>
+                </div>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                  <span className="font-medium text-sm">PancakeSwap CAKE/BNB Pool (BSC): </span>
+                  <button
+                    className="btn btn-sm btn-outline"
+                    onClick={() => {
+                      setPoolAddress("0x0ed7e52944161450477ee417de9cd3a859b14fd0");
+                      setSelectedNetwork("bsc");
+                    }}
+                  >
+                    0x0ed7e52944161450477ee417de9cd3a859b14fd0
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Loading State */}
+          {isLoading && (
             <div className="alert">
               <span className="loading loading-spinner loading-md"></span>
-              <span>Loading OHLC data on {getNetworkName(selectedNetwork)}...</span>
+              <span>Loading pool OHLC data on {getNetworkName(selectedNetwork)}...</span>
             </div>
           )}
 
+          {/* Error Message */}
           {error && (
             <div className="alert alert-error">
               <svg
@@ -379,94 +517,122 @@ export const GetOHLCByPool = ({ isOpen = true }: { isOpen?: boolean }) => {
                   d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              <span>Error: {error}</span>
+              <span className="break-all whitespace-pre-wrap">{error}</span>
             </div>
           )}
 
-          {!hookLoading && !error && paginatedData.length > 0 && (
+          {/* Pool Information */}
+          {!isLoading && !error && poolInfo && (
             <div className="card bg-base-100 shadow-xl">
               <div className="card-body">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="card-title">
-                    Price Data for Pool <Address address={poolAddress} />
-                    {poolInfo && poolInfo.token0Symbol && poolInfo.token1Symbol && (
-                      <span className="ml-2 text-sm font-normal">
-                        ({poolInfo.token0Symbol}/{poolInfo.token1Symbol}
-                        {poolInfo.protocol && ` on ${poolInfo.protocol}`})
-                      </span>
-                    )}
-                  </h2>
-                  <div className="flex gap-2">
-                    <button
-                      className="btn btn-sm btn-outline"
-                      onClick={goToPrevPage}
-                      disabled={page <= 1 || hookLoading}
-                    >
-                      Previous
-                    </button>
-                    <span className="flex items-center">
-                      Page {page} of {totalPages}
-                    </span>
-                    <button
-                      className="btn btn-sm btn-outline"
-                      onClick={goToNextPage}
-                      disabled={page >= totalPages || hookLoading}
-                    >
-                      Next
-                    </button>
+                <h3 className="card-title">Pool Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="stat bg-base-200 rounded-box p-4">
+                    <div className="stat-title">Pool Address</div>
+                    <div className="stat-value text-base break-all font-mono">
+                      <Address address={poolAddress} size="sm" />
+                    </div>
                   </div>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="table table-zebra w-full">
-                    <thead>
-                      <tr>
-                        <th>Date/Time</th>
-                        <th>Pair</th>
-                        <th>Open</th>
-                        <th>High</th>
-                        <th>Low</th>
-                        <th>Close</th>
-                        <th>Change</th>
-                        <th>Volume</th>
-                        <th>Volume USD</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {paginatedData.map((data, index) => (
-                        <tr key={`${data.datetime || data.timestamp}-${index}`}>
-                          <td>{formatDate(data.datetime || data.timestamp)}</td>
-                          <td>
-                            {data.pair || (poolInfo && `${poolInfo.token0Symbol}/${poolInfo.token1Symbol}`) || "—"}
-                          </td>
-                          <td>${formatPrice(data.open)}</td>
-                          <td>${formatPrice(data.high)}</td>
-                          <td>${formatPrice(data.low)}</td>
-                          <td>${formatPrice(data.close)}</td>
-                          <td
-                            className={
-                              Number(calculatePriceChange(data.open, data.close)) >= 0 ? "text-success" : "text-error"
-                            }
-                          >
-                            {calculatePriceChange(data.open, data.close)}%
-                          </td>
-                          <td>${formatVolume("volume_token0" in data ? data.volume_token0 : 0)}</td>
-                          <td>${formatVolume(data.volume_usd || 0)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <div className="stat bg-base-200 rounded-box p-4">
+                    <div className="stat-title">Token Pair</div>
+                    <div className="stat-value text-primary text-lg">
+                      {poolInfo.token0_symbol}/{poolInfo.token1_symbol}
+                    </div>
+                  </div>
+                  <div className="stat bg-base-200 rounded-box p-4">
+                    <div className="stat-title">Protocol</div>
+                    <div className="stat-value text-secondary text-lg">{poolInfo.protocol}</div>
+                  </div>
                 </div>
               </div>
             </div>
           )}
 
-          {!hookLoading && !error && ohlcData.length === 0 && poolAddress && (
+          {/* OHLC Data Table */}
+          {!isLoading && !error && ohlcData.length > 0 && (
+            <div className="card bg-base-100 shadow-xl">
+              <div className="card-body">
+                <h3 className="card-title">OHLC Price Data</h3>
+                <div className="overflow-x-auto">
+                  <table className="table w-full">
+                    <thead>
+                      <tr>
+                        <th>Date/Time</th>
+                        <th>Open</th>
+                        <th>High</th>
+                        <th>Low</th>
+                        <th>Close</th>
+                        <th>Change</th>
+                        <th>Volume (Token0)</th>
+                        <th>Volume (Token1)</th>
+                        {ohlcData[0]?.volume_usd !== undefined && <th>Volume (USD)</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ohlcData.map((item, index) => {
+                        const priceChange = calculatePriceChange(item.open, item.close);
+                        const priceChangeClass = priceChange
+                          ? priceChange > 0
+                            ? "text-green-500"
+                            : priceChange < 0
+                              ? "text-red-500"
+                              : ""
+                          : "";
+
+                        return (
+                          <tr key={index}>
+                            <td>{formatDate(item.datetime)}</td>
+                            <td>{formatPrice(item.open)}</td>
+                            <td>{formatPrice(item.high)}</td>
+                            <td>{formatPrice(item.low)}</td>
+                            <td>{formatPrice(item.close)}</td>
+                            <td className={priceChangeClass}>
+                              {priceChange !== null ? `${priceChange.toFixed(2)}%` : "N/A"}
+                            </td>
+                            <td>{formatVolume(item.volume_token0)}</td>
+                            <td>{formatVolume(item.volume_token1)}</td>
+                            {item.volume_usd !== undefined && <td>{formatVolume(item.volume_usd)}</td>}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                  <div className="flex justify-between items-center mt-4">
+                    <button
+                      className="btn btn-sm btn-outline"
+                      onClick={goToPrevPage}
+                      disabled={page === 1 || isLoading}
+                    >
+                      Previous
+                    </button>
+                    <span>
+                      Page {page} of {totalPages}
+                    </span>
+                    <button
+                      className="btn btn-sm btn-outline"
+                      onClick={goToNextPage}
+                      disabled={page >= totalPages || isLoading}
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!isLoading && !error && !ohlcData.length && (
             <div className="alert alert-info">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
-                className="stroke-current shrink-0 w-6 h-6"
+                className="stroke-current shrink-0 h-6 w-6"
               >
                 <path
                   strokeLinecap="round"
@@ -475,10 +641,7 @@ export const GetOHLCByPool = ({ isOpen = true }: { isOpen?: boolean }) => {
                   d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              <span>
-                No OHLC data found for this pool on {getNetworkName(selectedNetwork)}. Make sure you've entered a valid
-                DEX pool address for the selected network.
-              </span>
+              <span>Enter a pool address and click "Fetch OHLC Data" to view price data</span>
             </div>
           )}
         </div>

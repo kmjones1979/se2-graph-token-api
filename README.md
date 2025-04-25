@@ -397,16 +397,17 @@ The API supports the following networks:
 
 The components interact with these Token API endpoints:
 
-| Component         | Endpoint                             | Description                    |
-| ----------------- | ------------------------------------ | ------------------------------ |
-| GetMetadata       | `/tokens/evm/{contract}`             | Retrieves token metadata       |
-| GetBalances       | `/balances/evm/{address}`            | Fetches token balances         |
-| GetTransfers      | `/balances/evm/{address}`            | Displays balances as transfers |
-| GetHolders        | `/holders/evm/{contract}`            | Shows token holders            |
-| GetHistorical     | `/historical/balances/evm/{address}` | Historical balance data        |
-| GetOHLCByPool     | `/ohlc/pools/evm/{pool}`             | Price history for pools        |
-| GetOHLCByContract | `/ohlc/prices/evm/{contract}`        | Price history for tokens       |
-| GetSwaps          | `/swaps/evm`                         | DEX swap events                |
+| Component         | Endpoint                             | Description              |
+| ----------------- | ------------------------------------ | ------------------------ |
+| GetMetadata       | `/tokens/evm/{contract}`             | Retrieves token metadata |
+| GetBalances       | `/balances/evm/{address}`            | Fetches token balances   |
+| GetTransfers      | `/transfers/evm/{address}`           | Displays token transfers |
+| GetHolders        | `/holders/evm/{contract}`            | Shows token holders      |
+| GetHistorical     | `/historical/balances/evm/{address}` | Historical balance data  |
+| GetOHLCByPool     | `/ohlc/pools/evm/{pool}`             | Price history for pools  |
+| GetOHLCByContract | `/ohlc/prices/evm/{contract}`        | Price history for tokens |
+| GetSwaps          | `/swaps/evm`                         | DEX swap events          |
+| GetPools          | `/pools/evm`                         | Liquidity pool info      |
 
 ## 📝 Key Data Structures
 

@@ -5,6 +5,7 @@ import { getExampleTokenAddress } from "~~/app/token-api/_config/exampleTokens";
 import { EVM_NETWORKS, getNetworkName } from "~~/app/token-api/_config/networks";
 import { TIME_INTERVALS, TIME_SPANS, getTimeRange } from "~~/app/token-api/_config/timeConfig";
 import { NetworkId } from "~~/app/token-api/_hooks/useTokenApi";
+import { useTokenDetails } from "~~/app/token-api/_hooks/useTokenDetails";
 import {
   ContractOHLCParams,
   OHLCDataPoint,
@@ -13,7 +14,7 @@ import {
 import { Address, AddressInput } from "~~/components/scaffold-eth";
 
 // Extended OHLC data interface for our component
-interface OHLCDataExtended extends OHLCDataPoint {
+interface OHLCDataExtended extends Partial<OHLCDataPoint> {
   datetime?: string;
   network_id?: string;
   pair?: string;
@@ -43,16 +44,31 @@ export const GetOHLCByContract = ({ isOpen = true }: { isOpen?: boolean }) => {
     isLoading: hookLoading,
     error: hookError,
     refetch,
-  } = useTokenOHLCByContract(
-    contractAddress,
-    {
-      network_id: selectedNetwork,
-      resolution: selectedInterval,
-      from_timestamp: startTime,
-      to_timestamp: endTime,
-    },
-    { skip: !shouldFetch }, // Only fetch when explicitly triggered
-  );
+  } = useTokenOHLCByContract({
+    contract: contractAddress,
+    network: selectedNetwork,
+    timeframe: startTime, // This may need to be adjusted based on your API
+    limit: limit,
+    enabled: shouldFetch, // Only fetch when explicitly triggered
+  });
+
+  // Add this for token details
+  const { data: tokenDetails, isLoading: tokenDetailsLoading } = useTokenDetails({
+    contract: contractAddress,
+    network: selectedNetwork,
+    enabled: !!contractAddress,
+  });
+
+  // Helper function for safe date parsing
+  const safeParseDate = (dateString: string | number | Date): Date => {
+    try {
+      const date = new Date(dateString);
+      return isNaN(date.getTime()) ? new Date() : date;
+    } catch (err) {
+      console.warn("Error parsing date:", dateString, err);
+      return new Date();
+    }
+  };
 
   // Process data from the hook when it's available
   useEffect(() => {
@@ -60,32 +76,136 @@ export const GetOHLCByContract = ({ isOpen = true }: { isOpen?: boolean }) => {
 
     // Set the processing flag to prevent re-entry
     processingData.current = true;
+    let dataProcessed = false; // Flag to track if we successfully processed data
 
     try {
       console.log("📊 Received OHLC data from hook:", data);
 
-      if (data.ohlc && Array.isArray(data.ohlc)) {
-        // Convert the data to our expected format
-        const formattedData = data.ohlc.map(item => ({
-          ...item,
-          // Convert timestamp to datetime string for display
-          datetime: new Date(item.timestamp * 1000).toISOString(),
-          network_id: data.network_id,
-        }));
+      // Check if data is the new format with data.data property
+      if (data.data && Array.isArray(data.data)) {
+        // Convert the new API format data to our expected format
+        const formattedData = data.data.map(item => {
+          try {
+            const dateObj = item.datetime ? safeParseDate(item.datetime) : new Date();
 
-        setOhlcData(formattedData);
+            return {
+              timestamp: dateObj.getTime() / 1000,
+              open: typeof item.open === "string" ? parseFloat(item.open) : item.open || 0,
+              high: typeof item.high === "string" ? parseFloat(item.high) : item.high || 0,
+              low: typeof item.low === "string" ? parseFloat(item.low) : item.low || 0,
+              close: typeof item.close === "string" ? parseFloat(item.close) : item.close || 0,
+              volume: typeof item.volume === "string" ? parseFloat(item.volume) : item.volume || 0,
+              datetime: dateObj.toISOString(),
+              network_id: selectedNetwork,
+              pair: item.ticker,
+            };
+          } catch (err) {
+            console.warn("Error processing OHLC data point:", err);
+            // Return a fallback data point if conversion fails
+            return {
+              timestamp: Date.now() / 1000,
+              open: typeof item.open === "string" ? parseFloat(item.open) : item.open || 0,
+              high: typeof item.high === "string" ? parseFloat(item.high) : item.high || 0,
+              low: typeof item.low === "string" ? parseFloat(item.low) : item.low || 0,
+              close: typeof item.close === "string" ? parseFloat(item.close) : item.close || 0,
+              volume: typeof item.volume === "string" ? parseFloat(item.volume) : item.volume || 0,
+              datetime: new Date().toISOString(),
+              network_id: selectedNetwork,
+              pair: item.ticker,
+            };
+          }
+        });
 
-        // Set token info if available
-        if (data.token_symbol || data.token_name) {
-          setTokenInfo({
-            symbol: data.token_symbol || "",
-            name: data.token_name || "",
-          });
+        if (formattedData.length > 0) {
+          dataProcessed = true; // Mark that we've successfully processed data
+          setOhlcData(formattedData);
+
+          // Set token info from the tokenDetails if available
+          if (tokenDetails) {
+            setTokenInfo({
+              symbol: tokenDetails.symbol || "TOKEN",
+              name: tokenDetails.name || "Token",
+            });
+          } else if (formattedData[0]?.pair) {
+            // Try to extract token symbol from ticker if available
+            setTokenInfo({
+              symbol: formattedData[0].pair,
+              name: formattedData[0].pair,
+            });
+          } else {
+            setTokenInfo({
+              symbol: "TOKEN", // Default
+              name: "Token", // Default
+            });
+          }
+
+          // Handle pagination from API response
+          if (data.pagination) {
+            setTotalPages(data.pagination.total_pages || 1);
+          } else {
+            setTotalPages(Math.ceil(data.data.length / limit) || 1);
+          }
         }
+      }
+      // Legacy array format
+      else if (data && Array.isArray(data)) {
+        // Convert the data to our expected format
+        const formattedData = data.map(item => {
+          try {
+            // Safely convert timestamp to date
+            const dateObj = item.time ? safeParseDate(item.time * 1000) : new Date();
 
-        // Handle pagination
-        setTotalPages(Math.ceil(data.ohlc.length / limit) || 1);
-      } else {
+            return {
+              timestamp: item.time,
+              open: typeof item.open === "string" ? parseFloat(item.open) : item.open || 0,
+              high: typeof item.high === "string" ? parseFloat(item.high) : item.high || 0,
+              low: typeof item.low === "string" ? parseFloat(item.low) : item.low || 0,
+              close: typeof item.close === "string" ? parseFloat(item.close) : item.close || 0,
+              volume: typeof item.volume === "string" ? parseFloat(item.volume) : item.volume || 0,
+              // Handle timestamp conversion safely
+              datetime: dateObj.toISOString(),
+              network_id: selectedNetwork, // Use the selected network since it's not in the response
+            };
+          } catch (err) {
+            console.warn("Error processing legacy OHLC data point:", err);
+            // Return a fallback data point if conversion fails
+            return {
+              timestamp: Date.now() / 1000,
+              open: typeof item.open === "string" ? parseFloat(item.open) : item.open || 0,
+              high: typeof item.high === "string" ? parseFloat(item.high) : item.high || 0,
+              low: typeof item.low === "string" ? parseFloat(item.low) : item.low || 0,
+              close: typeof item.close === "string" ? parseFloat(item.close) : item.close || 0,
+              volume: typeof item.volume === "string" ? parseFloat(item.volume) : item.volume || 0,
+              datetime: new Date().toISOString(),
+              network_id: selectedNetwork,
+            };
+          }
+        });
+
+        if (formattedData.length > 0) {
+          dataProcessed = true; // Mark that we've successfully processed data
+          setOhlcData(formattedData);
+
+          // Set token info from the tokenDetails if available
+          if (tokenDetails) {
+            setTokenInfo({
+              symbol: tokenDetails.symbol || "TOKEN",
+              name: tokenDetails.name || "Token",
+            });
+          } else {
+            setTokenInfo({
+              symbol: "TOKEN", // Default
+              name: "Token", // Default
+            });
+          }
+
+          // Handle pagination
+          setTotalPages(Math.ceil(data.length / limit) || 1);
+        }
+      }
+
+      // If we haven't successfully processed any data
+      if (!dataProcessed) {
         console.log("⚠️ No OHLC data found in response or unexpected format");
         setOhlcData([]);
         setTokenInfo(null);
@@ -98,7 +218,7 @@ export const GetOHLCByContract = ({ isOpen = true }: { isOpen?: boolean }) => {
         processingData.current = false;
       }, 100);
     }
-  }, [data, limit]);
+  }, [data, limit, selectedNetwork, tokenDetails]);
 
   // Handle API errors separately
   useEffect(() => {
@@ -177,16 +297,16 @@ export const GetOHLCByContract = ({ isOpen = true }: { isOpen?: boolean }) => {
   };
 
   // Format price
-  const formatPrice = (price: number) => {
-    return price.toLocaleString(undefined, {
+  const formatPrice = (price: number | undefined) => {
+    return (price ?? 0).toLocaleString(undefined, {
       minimumFractionDigits: 2,
       maximumFractionDigits: 6,
     });
   };
 
   // Format volume
-  const formatVolume = (volume: number) => {
-    return volume.toLocaleString(undefined, {
+  const formatVolume = (volume: number | undefined) => {
+    return (volume ?? 0).toLocaleString(undefined, {
       minimumFractionDigits: 0,
       maximumFractionDigits: 2,
     });
@@ -208,9 +328,12 @@ export const GetOHLCByContract = ({ isOpen = true }: { isOpen?: boolean }) => {
   };
 
   // Price change percentage calculation
-  const calculatePriceChange = (open: number, close: number) => {
-    if (open === 0) return 0;
-    const change = ((close - open) / open) * 100;
+  const calculatePriceChange = (open: number | undefined, close: number | undefined) => {
+    const openVal = open ?? 0;
+    const closeVal = close ?? 0;
+
+    if (openVal === 0) return 0;
+    const change = ((closeVal - openVal) / openVal) * 100;
     return change.toFixed(2);
   };
 
