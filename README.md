@@ -1,452 +1,286 @@
-# Token API Explorer 🚀 built with Scaffold-ETH 2
+# The Graph Token API SDK
 
-A modern, responsive web application built with Next.js that interacts with [The Graph Token API](https://thegraph.com/docs/en/token-api/evm/get-balances-evm-by-address/). This explorer allows you to fetch and display token information across multiple EVM networks.
+A comprehensive SDK for interacting with The Graph Token API built on Scaffold-ETH 2, featuring advanced data fetching hooks, reusable UI components, and complete TypeScript support.
 
-## 📑 Table of Contents
+## Table of Contents
 
--   [🌟 Features](#-features)
--   [🛠️ Setup](#️-setup)
-    -   [Prerequisites](#prerequisites)
-    -   [Installation](#installation)
-    -   [Running the Application](#running-the-application)
--   [📚 API Components](#-api-components)
-    -   [Token Holders Component](#token-holders-component)
-    -   [Token Transfers Component](#token-transfers-component)
-    -   [Token Metadata Component](#token-metadata-component)
-    -   [Token Balances Component](#token-balances-component)
-    -   [Historical Balances Component](#historical-balances-component)
-    -   [DEX Pool OHLC Component](#dex-pool-ohlc-component)
-    -   [Token OHLC Component](#token-ohlc-component)
-    -   [DEX Swaps Component](#dex-swaps-component)
-    -   [DEX Pools Component](#dex-pools-component)
--   [🔍 Example Addresses for Testing](#-example-addresses-for-testing)
--   [🔑 API Authentication](#-api-authentication)
--   [🌐 Supported Networks](#-supported-networks)
--   [🧩 API Endpoints](#-api-endpoints)
--   [📝 Key Data Structures](#-key-data-structures)
-    -   [OHLC Price Data](#ohlc-price-data)
-    -   [Historical Balance Data](#historical-balance-data)
-    -   [Token Metadata](#token-metadata)
-    -   [Token Balance](#token-balance)
-    -   [Token Holder](#token-holder)
-    -   [Token Transfer](#token-transfer)
-    -   [Swap Event](#swap-event)
--   [📱 Component Features](#-component-features)
--   [🔄 Error Handling Examples](#-error-handling-examples)
--   [🎨 Styling](#-styling)
--   [🤝 Contributing](#-contributing)
--   [📄 License](#-license)
--   [Getting Started](#getting-started)
-    -   [1. Get Your API Key](#1-get-your-api-key)
-    -   [2. Set Up Environment Variables](#2-set-up-environment-variables)
-    -   [3. Install Dependencies](#3-install-dependencies)
-    -   [4. Start the Development Server](#4-start-the-development-server)
--   [Features](#features)
--   [Built With](#built-with)
--   [🧰 Hook Documentation for Scaffold-ETH](#-hook-documentation-for-scaffold-eth)
--   [🧩 Component Documentation for Scaffold-ETH](#-component-documentation-for-scaffold-eth)
--   [🔍 Token API Component Documentation](#-token-api-component-documentation)
-    -   [GetHolders Component](#getholders-component)
-    -   [GetBalances Component](#getbalances-component)
-    -   [GetTransfers Component](#gettransfers-component)
-    -   [GetMetadata Component](#getmetadata-component)
-    -   [GetHistorical Component](#gethistorical-component)
-    -   [GetOHLCByPool Component](#getohlcbypool-component)
-    -   [GetOHLCByContract Component](#getohlcbycontract-component)
-    -   [GetSwaps Component](#getswaps-component)
-    -   [GetPools Component](#getpools-component)
--   [🪝 Token API Hooks Documentation](#-token-api-hooks-documentation)
-    -   [useTokenApi](#usetokenapi)
-    -   [useTokenBalances](#usetokenbalances)
-    -   [useTokenHolders](#usetokenholders)
-    -   [useTokenMetadata](#usetokenmetadata)
-    -   [useTokenTransfers](#usetokentransfers)
-    -   [useHistoricalBalances](#usehistoricalbalances)
-    -   [useTokenOHLCByPool](#usetokenohlcbypool)
-    -   [useTokenOHLCByContract](#usetokenohlcbycontract)
-    -   [useTokenSwaps](#usetokenswaps)
-    -   [useTokenPools](#usetokenpools)
--   [🚀 Tutorial: Setting Up and Using Hooks](#-tutorial-setting-up-and-using-hooks)
--   [🏗 Scaffold-ETH 2](#-scaffold-eth-2)
-    -   [Requirements](#requirements)
-    -   [Quickstart](#quickstart)
-    -   [🚀 Setup The Graph Integration](#-setup-the-graph-integration)
-    -   [Shipping to Subgraph Studio 🚀](#shipping-to-subgraph-studio-)
-    -   [A list of all available root commands](#a-list-of-all-available-root-commands)
-    -   [Documentation](#documentation)
-    -   [Contributing to Scaffold-ETH 2](#contributing-to-scaffold-eth-2)
+-   [Overview](#overview)
+-   [Installation](#installation)
+-   [API Configuration](#api-configuration)
+    -   [Environment Setup](#environment-setup)
+    -   [Next.js API Route Implementation](#nextjs-api-route-implementation)
+    -   [Authentication Flow](#authentication-flow)
+-   [Core Architecture](#core-architecture)
+    -   [Directory Structure](#directory-structure)
+    -   [Data Flow](#data-flow)
+-   [Hooks Library](#hooks-library)
+    -   [Base Hook: useTokenApi](#base-hook-usetokenapi)
+    -   [Specialized Hooks](#specialized-hooks)
+        -   [useTokenMetadata](#usetokenmetadata)
+        -   [useTokenBalances](#usetokenbalances)
+        -   [useTokenHolders](#usetokenholders)
+        -   [useTokenTransfers](#usetokentransfers)
+        -   [useTokenOHLCByPool](#usetokenohlcbypool)
+        -   [useTokenOHLCByContract](#usetokenohlcbycontract)
+        -   [useTokenPools](#usetokenpools)
+        -   [useTokenSwaps](#usetokenswaps)
+-   [UI Components](#ui-components)
+    -   [Common Patterns](#common-patterns)
+    -   [Component Gallery](#component-gallery)
+-   [Configuration System](#configuration-system)
+    -   [Network Configuration](#network-configuration)
+    -   [Protocol Configuration](#protocol-configuration)
+    -   [Example Tokens](#example-tokens)
+    -   [Time Configuration](#time-configuration)
+    -   [Block Time Utilities](#block-time-utilities)
+-   [Utility Functions](#utility-functions)
+    -   [Address Utilities](#address-utilities)
+-   [Type System](#type-system)
+    -   [Common Types](#common-types)
+-   [Example Usage](#example-usage)
+-   [API Endpoint References](#api-endpoint-references)
+-   [Troubleshooting](#troubleshooting)
+-   [Contributing](#contributing)
 
-## 🌟 Features
+## Overview
 
--   📊 Token Holders: View detailed holder information with pagination
--   💰 Token Balances: Check balances for any address
--   🔄 Token Transfers: Track token movement with detailed transaction info
--   ℹ️ Token Metadata: Get comprehensive token information
--   📈 Historical Balances: Track token balance changes over time
--   📊 Pool OHLC Data: View price history for DEX liquidity pools
--   💹 Token OHLC Data: Track price movements for individual tokens
--   💱 Token Swaps: Monitor DEX swap events across networks
--   🌐 Multi-Network Support: Works across Ethereum, Base, Arbitrum, BSC, Optimism, and Polygon
--   🎨 Standardized UI: Consistent, responsive, and collapsible component designs
--   🧩 Modular Architecture: Components can be used independently or combined
+This SDK provides a complete toolkit for interacting with The Graph Token API, enabling developers to easily fetch and display token-related data across multiple EVM networks. It's built as part of a Scaffold-ETH 2 application but the hooks and components can be used in any React project.
 
-## 🛠️ Setup
+Key features:
 
-### Prerequisites
+-   **React Hooks Library**: Specialized hooks for different token API endpoints
+-   **UI Component Collection**: Ready-to-use components for displaying token data
+-   **API Proxy Integration**: Secure API communication with authentication handling
+-   **Multi-Network Support**: Works with Ethereum, Arbitrum, Base, BSC, Optimism, and Polygon
+-   **TypeScript Support**: Full type safety with comprehensive interfaces
 
--   Node.js (>= v20.18.3)
--   Yarn (v1 or v2+)
--   A Graph API Token from [The Graph Market](https://thegraph.market/)
-
-### Installation
-
-1. Clone the repository:
+## Installation
 
 ```bash
+# Clone the repository
 git clone https://github.com/kmjones1979/se2-graph-token-api
 cd se2-graph-token-api
-```
 
-2. Install dependencies:
-
-```bash
+# Install dependencies
 yarn install
-```
 
-3. Create a `.env.local` file in the root directory:
+# Create an .env.local file with your Graph API token
+echo "NEXT_PUBLIC_GRAPH_TOKEN=your_graph_api_token_here" > .env.local
 
-1. Visit [The Graph Market](https://thegraph.market/)
-1. Navigate to the "Token API" tab
-1. Click "Get API Key"
-1. Follow the authentication process
-1. Copy your API key
-
-```env
-NEXT_PUBLIC_GRAPH_TOKEN=your_graph_api_token_here
-NEXT_PUBLIC_GRAPH_API_URL=https://token-api.thegraph.com
-```
-
-Replace `your_graph_api_token_here` with your actual Graph API Token. The `NEXT_PUBLIC_GRAPH_API_URL` is optional and defaults to `https://token-api.thegraph.com` if not specified.
-
-### Running the Application
-
-```bash
+# Start the development server
 yarn start
 ```
 
-Visit `http://localhost:3000/token-api` to access the application.
+Visit `http://localhost:3000/token-api` to see all components in action.
 
-## 📚 API Components
+## API Configuration
 
-### Token Holders Component
+### Environment Setup
 
-Fetches and displays token holder information for any ERC20 token.
+The SDK requires a Graph API token for authentication. You can obtain one from [The Graph Market](https://thegraph.market/).
+
+Create a `.env.local` file in the root directory:
+
+```env
+# Required: Graph API Token for authentication
+NEXT_PUBLIC_GRAPH_TOKEN=your_graph_api_token_here
+
+# Optional: API URL (defaults to the stage URL if not provided)
+NEXT_PUBLIC_GRAPH_API_URL=https://token-api.thegraph.com
+
+# Alternative authentication method (used if token not provided)
+NEXT_PUBLIC_GRAPH_API_KEY=your_api_key_here
+```
+
+### Next.js API Route Implementation
+
+The SDK uses Next.js App Router API routes to create a secure proxy for token API requests. This keeps API keys secure and handles authentication properly.
+
+The proxy route is implemented in `packages/nextjs/app/api/token-proxy/route.ts`:
 
 ```typescript
-// Example usage in your component
-import { GetHolders } from "~~/app/token-api/_components/GetHolders";
+// token-proxy/route.ts
+export async function GET(request: NextRequest) {
+    try {
+        // Get query parameters from the request
+        const searchParams = request.nextUrl.searchParams;
 
-export default function YourComponent() {
-    return (
-        <div>
-            <GetHolders />
-            {/* With custom parameters */}
-            <GetHolders
-                initialContractAddress="0xc944E90C64B2c07662A292be6244BDf05Cda44a7"
-                initialNetwork="mainnet"
-                isOpen={true}
-            />
-        </div>
+        // Get the path to the API endpoint (required)
+        const path = searchParams.get("path");
+        if (!path) {
+            return NextResponse.json(
+                { error: "Missing 'path' parameter" },
+                { status: 400 }
+            );
+        }
+
+        // Build the complete URL with the API base URL
+        const url = new URL(path, API_URL);
+
+        // Forward query parameters
+        searchParams.forEach((value, key) => {
+            if (key !== "path") {
+                url.searchParams.append(key, value);
+            }
+        });
+
+        // Set up authentication headers
+        const headers: HeadersInit = {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+        };
+
+        // Use API key if available, otherwise use JWT token
+        if (process.env.NEXT_PUBLIC_GRAPH_API_KEY) {
+            headers["X-Api-Key"] = process.env.NEXT_PUBLIC_GRAPH_API_KEY;
+        } else if (process.env.NEXT_PUBLIC_GRAPH_TOKEN) {
+            headers[
+                "Authorization"
+            ] = `Bearer ${process.env.NEXT_PUBLIC_GRAPH_TOKEN}`;
+        }
+
+        // Make the API request
+        const response = await fetch(url.toString(), {
+            method: "GET",
+            headers,
+            cache: "no-store", // Disable caching
+        });
+
+        // Parse and return the response
+        const data = await response.json();
+        return NextResponse.json(data, { status: response.status });
+    } catch (error) {
+        return NextResponse.json(
+            {
+                error:
+                    error instanceof Error
+                        ? error.message
+                        : "Unknown error occurred",
+            },
+            { status: 500 }
+        );
+    }
+}
+```
+
+### Authentication Flow
+
+The authentication flow works as follows:
+
+1. Client hooks call the local API route (`/api/token-proxy`) with the endpoint path and parameters
+2. The API route adds authentication headers (API key or JWT token)
+3. The API route forwards the request to the Graph Token API
+4. The API route returns the response to the client
+
+This approach keeps API keys secure (they never leave the server) and prevents CORS issues.
+
+## Core Architecture
+
+### Directory Structure
+
+The SDK follows a structured organization:
+
+```
+app/
+├── token-api/              # Main directory for the token API
+│   ├── _components/        # UI components
+│   ├── _config/            # Configuration files
+│   ├── _hooks/             # Data fetching hooks
+│   ├── _types/             # TypeScript type definitions
+│   ├── _utils/             # Utility functions
+│   └── page.tsx            # Main page showcasing all components
+└── api/
+    └── token-proxy/        # API proxy route
+        └── route.ts        # API handler implementation
+```
+
+### Data Flow
+
+The data flow follows this pattern:
+
+1. **Component Initialization**: UI component initializes with state for inputs
+2. **Hook Setup**: Component calls a specialized hook with parameters
+3. **API Request**: Hook calls the API proxy route with endpoint and parameters
+4. **Authentication**: API proxy adds authentication headers
+5. **Data Fetching**: API proxy fetches data from the Graph Token API
+6. **Response Handling**: Hook processes the response and returns it to the component
+7. **Rendering**: Component renders the data with appropriate loading/error states
+
+## Hooks Library
+
+### Base Hook: useTokenApi
+
+`useTokenApi` is the foundation for all specialized hooks. It provides generic API interaction with error handling, loading states, and data formatting.
+
+**Location**: `packages/nextjs/app/token-api/_hooks/useTokenApi.ts`
+
+```typescript
+export const useTokenApi = <DataType, ParamsType = Record<string, any>>(
+    endpoint: string,
+    params?: ParamsType,
+    options: TokenApiOptions = {}
+) => {
+    const { skip = false, refetchInterval } = options;
+    const [data, setData] = useState<DataType | undefined>(undefined);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | undefined>(undefined);
+    const [lastUpdated, setLastUpdated] = useState<number | undefined>(
+        undefined
     );
-}
+
+    // Fetch implementation, error handling, and refetch logic...
+
+    return {
+        data,
+        isLoading,
+        error,
+        refetch: fetchData,
+        lastUpdated,
+    };
+};
 ```
 
-### Token Transfers Component
+**Key Features**:
 
-Displays token balances formatted as transfers with proper decimal formatting.
+-   **Generic Type Parameters**: Allows for typed responses with `DataType` and `ParamsType`
+-   **Conditional Fetching**: Supports skipping fetches with the `skip` option
+-   **Auto-Refetching**: Supports auto-refreshing with `refetchInterval`
+-   **Error Handling**: Comprehensive error handling and state management
+-   **Manual Refetch**: Provides a function to manually trigger refetches
 
-```typescript
-import { GetTransfers } from "~~/app/token-api/_components/GetTransfers";
+### Specialized Hooks
 
-// Basic usage
-<GetTransfers />
+#### useTokenMetadata
 
-// With custom address/contract and network
-<GetTransfers
-  initialAddress="0x1234..."
-  initialNetwork="base"
-  isOpen={true}
-/>
-```
+Fetches detailed information about a token contract.
 
-**Features:**
-
--   Shows token contract addresses instead of "from" addresses
--   Formats token amounts properly based on token decimals
--   Displays both formatted and raw amounts when they differ
--   Connects to the balances API endpoint to fetch token data
-
-### Token Metadata Component
-
-Fetches comprehensive token information.
+**Location**: `packages/nextjs/app/token-api/_hooks/useTokenMetadata.ts`
 
 ```typescript
-// Example usage
-import { GetMetadata } from "~~/app/token-api/_components/GetMetadata";
-
-export default function YourComponent() {
-    return (
-        <div>
-            <GetMetadata />
-            {/* With custom parameters */}
-            <GetMetadata
-                initialContractAddress="0x4200000000000000000000000000000000000042"
-                initialNetwork="optimism"
-                isOpen={true}
-            />
-        </div>
+export const useTokenMetadata = (
+    contract: string | undefined,
+    params?: TokenMetadataParams,
+    options = { skip: contract ? false : true }
+) => {
+    // Format endpoint
+    const normalizedContract = cleanContractAddress(contract);
+    return useTokenApi<TokenMetadataResponse>(
+        normalizedContract ? `tokens/evm/${normalizedContract}` : "",
+        { ...params },
+        options
     );
-}
+};
 ```
 
-### Token Balances Component
+**Parameters**:
 
-Retrieves token balances for any Ethereum address across supported networks.
+-   `contract`: Token contract address
+-   `params`: Optional parameters
+    -   `network_id`: Network identifier
+    -   `include_market_data`: Whether to include price data (default: true)
+-   `options`: Hook options (skip, refetchInterval)
 
-```typescript
-// Example usage
-import { GetBalances } from "~~/app/token-api/_components/GetBalances";
-
-export default function YourComponent() {
-    return (
-        <div>
-            <GetBalances />
-            {/* With custom parameters */}
-            <GetBalances
-                initialAddress="0x1234..."
-                initialNetwork="arbitrum-one"
-                isOpen={true}
-            />
-        </div>
-    );
-}
-```
-
-### Historical Balances Component
-
-Track token balance changes over time for any wallet address.
-
-```typescript
-// Example usage
-import { GetHistorical } from "~~/app/token-api/_components/GetHistorical";
-
-export default function YourComponent() {
-    return (
-        <div>
-            <GetHistorical />
-            {/* With custom parameters */}
-            <GetHistorical
-                initialAddress="0x1234..."
-                initialNetwork="mainnet"
-                isOpen={true}
-            />
-        </div>
-    );
-}
-```
-
-### DEX Pool OHLC Component
-
-View price history for liquidity pools with OHLCV data.
-
-```typescript
-// Example usage
-import { GetOHLCByPool } from "~~/app/token-api/_components/GetOHLCByPool";
-
-export default function YourComponent() {
-    return (
-        <div>
-            <GetOHLCByPool />
-            {/* With custom parameters */}
-            <GetOHLCByPool
-                initialPoolAddress="0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640"
-                initialNetwork="mainnet"
-                isOpen={true}
-            />
-        </div>
-    );
-}
-```
-
-### Token OHLC Component
-
-Track price movements for individual token contracts.
-
-```typescript
-// Example usage
-import { GetOHLCByContract } from "~~/app/token-api/_components/GetOHLCByContract";
-
-export default function YourComponent() {
-    return (
-        <div>
-            <GetOHLCByContract />
-            {/* With custom parameters */}
-            <GetOHLCByContract
-                initialContractAddress="0x4200000000000000000000000000000000000042"
-                initialNetwork="optimism"
-                isOpen={true}
-            />
-        </div>
-    );
-}
-```
-
-### DEX Swaps Component
-
-Monitor swap events across DEXs on multiple networks.
-
-```typescript
-// Example usage
-import { GetSwaps } from "~~/app/token-api/_components/GetSwaps";
-
-export default function YourComponent() {
-    return (
-        <div>
-            <GetSwaps />
-            {/* With custom parameters */}
-            <GetSwaps initialNetwork="mainnet" isOpen={true} />
-        </div>
-    );
-}
-```
-
-### DEX Pools Component
-
-View liquidity pools across different networks.
-
-```typescript
-// Example usage
-import { GetPools } from "~~/app/token-api/_components/GetPools";
-
-export default function YourComponent() {
-    return (
-        <div>
-            <GetPools />
-            {/* With custom parameters */}
-            <GetPools initialNetwork="mainnet" isOpen={true} />
-        </div>
-    );
-}
-```
-
-## 🔍 Example Addresses for Testing
-
-### Token Contracts
-
--   Ethereum (GRT): `0xc944E90C64B2c07662A292be6244BDf05Cda44a7`
--   Arbitrum (ARB): `0x912CE59144191C1204E64559FE8253a0e49E6548`
--   Base (cbETH): `0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22`
--   BSC (BSC-USD): `0x55d398326f99059fF775485246999027B3197955`
--   Optimism (OP): `0x4200000000000000000000000000000000000042`
-
-### DEX Pool Addresses
-
--   Ethereum (ETH/USDC): `0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640`
--   Base (ETH/USDbC): `0x4c36388be6f416a29c8d8eee81c771ce6be14b18`
--   Arbitrum (ETH/USDC): `0xc31e54c7a869b9fcbecc14363cf510d1c41fa443`
--   BSC (BNB/BUSD): `0x58f876857a02d6762e0101bb5c46a8c1ed44dc16`
--   Optimism (ETH/USDC): `0x85149247691df622eaf1a8bd0cafd40bc45154a9`
-
-## 🔑 API Authentication
-
-The application requires a Graph API Token for authentication. The implementation uses a proxy approach for security:
-
-1. Requests are made to a local API route (`/api/token-proxy`)
-2. The proxy adds authentication headers and forwards to the Graph Token API
-3. This keeps API keys secure and avoids CORS issues
-
-```typescript
-// Example of how API requests are made
-const url = new URL("/api/token-proxy", window.location.origin);
-url.searchParams.append("path", `transfers/evm/${contractAddress}`);
-url.searchParams.append("network_id", selectedNetwork);
-
-const response = await fetch(url.toString(), {
-    method: "GET",
-    headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-    },
-    cache: "no-store",
-});
-```
-
-⚠️ **Important**: Never commit your `.env.local` file to version control. Make sure it's included in your `.gitignore`.
-
-## 🌐 Supported Networks
-
-The API supports the following networks:
-
--   `mainnet`: Ethereum Mainnet
--   `arbitrum-one`: Arbitrum
--   `base`: Base
--   `bsc`: Binance Smart Chain
--   `optimism`: Optimism
--   `matic`: Polygon
--   `unichain`: Unichain (for some endpoints)
-
-## 🧩 API Endpoints
-
-The components interact with these Token API endpoints:
-
-| Component         | Endpoint                             | Description              |
-| ----------------- | ------------------------------------ | ------------------------ |
-| GetMetadata       | `/tokens/evm/{contract}`             | Retrieves token metadata |
-| GetBalances       | `/balances/evm/{address}`            | Fetches token balances   |
-| GetTransfers      | `/transfers/evm/{address}`           | Displays token transfers |
-| GetHolders        | `/holders/evm/{contract}`            | Shows token holders      |
-| GetHistorical     | `/historical/balances/evm/{address}` | Historical balance data  |
-| GetOHLCByPool     | `/ohlc/pools/evm/{pool}`             | Price history for pools  |
-| GetOHLCByContract | `/ohlc/prices/evm/{contract}`        | Price history for tokens |
-| GetSwaps          | `/swaps/evm`                         | DEX swap events          |
-| GetPools          | `/pools/evm`                         | Liquidity pool info      |
-
-## 📝 Key Data Structures
-
-### OHLC Price Data
-
-```typescript
-interface OHLCData {
-    datetime: string;
-    network_id: string;
-    pair?: string;
-    open: number;
-    high: number;
-    low: number;
-    close: number;
-    volume: number;
-    uaw?: number; // Unique active wallets
-    transactions?: number;
-}
-```
-
-### Historical Balance Data
-
-```typescript
-interface HistoricalBalance {
-    datetime: string;
-    contract: string;
-    name: string;
-    symbol: string;
-    decimals: string;
-    open: number;
-    high: number;
-    low: number;
-    close: number;
-}
-```
-
-### Token Metadata
+**Response Type**:
 
 ```typescript
 interface TokenMetadata {
@@ -465,21 +299,103 @@ interface TokenMetadata {
 }
 ```
 
-### Token Balance
+#### useTokenBalances
+
+Fetches token balances for a wallet address.
+
+**Location**: `packages/nextjs/app/token-api/_hooks/useTokenBalances.ts`
+
+```typescript
+export const useTokenBalances = (
+    address: string | undefined,
+    params?: TokenBalancesParams,
+    options = { skip: address ? false : true }
+) => {
+    // Normalize the address
+    const normalizedAddress =
+        address && !address.startsWith("0x") ? `0x${address}` : address;
+
+    // Call the base hook with the appropriate endpoint
+    const result = useTokenApi<TokenBalancesResponse>(
+        normalizedAddress ? `balances/evm/${normalizedAddress}` : "",
+        { ...params },
+        options
+    );
+
+    // Format the result for easier consumption
+    let formattedData: TokenBalance[] = [];
+    if (result.data) {
+        if (Array.isArray(result.data)) {
+            formattedData = result.data;
+        } else if ("data" in result.data && Array.isArray(result.data.data)) {
+            formattedData = result.data.data;
+        }
+    }
+
+    return {
+        ...result,
+        data: formattedData,
+    };
+};
+```
+
+**Parameters**:
+
+-   `address`: Wallet address
+-   `params`: Optional parameters
+    -   `network_id`: Network identifier
+    -   `page`: Page number
+    -   `page_size`: Results per page
+    -   `min_amount`: Minimum token amount
+    -   `contract_address`: Filter for specific token
+-   `options`: Hook options
+
+**Response Type**:
 
 ```typescript
 interface TokenBalance {
     contract_address: string;
     amount: string;
-    symbol: string;
-    decimals: number;
     name?: string;
+    symbol?: string;
+    decimals?: number;
     amount_usd?: number;
-    network_id: string;
 }
 ```
 
-### Token Holder
+#### useTokenHolders
+
+Fetches holder information for a token contract.
+
+**Location**: `packages/nextjs/app/token-api/_hooks/useTokenHolders.ts`
+
+```typescript
+export const useTokenHolders = (
+    contract: string | undefined,
+    params?: TokenHoldersParams,
+    options = { skip: contract ? false : true }
+) => {
+    const normalizedContract = cleanContractAddress(contract);
+
+    return useTokenApi<TokenHoldersResponse>(
+        normalizedContract ? `holders/evm/${normalizedContract}` : "",
+        { ...params },
+        options
+    );
+};
+```
+
+**Parameters**:
+
+-   `contract`: Token contract address
+-   `params`: Optional parameters
+    -   `network_id`: Network identifier
+    -   `page`: Page number
+    -   `page_size`: Results per page
+    -   `order_by`: Sort order ("asc" or "desc")
+-   `options`: Hook options
+
+**Response Type**:
 
 ```typescript
 interface TokenHolder {
@@ -489,478 +405,331 @@ interface TokenHolder {
     balance_usd?: number;
     token_share?: number;
 }
-```
 
-### Token Transfer
-
-```typescript
-interface TokenTransfer {
-    tx_hash: string;
-    from_address: string;
-    to_address: string;
-    value: string;
-    value_display?: string;
-    block_timestamp: number;
-    block_number: number;
-    type: string;
-    network_id?: string;
+interface TokenHoldersResponse {
+    holders: TokenHolder[];
+    pagination: {
+        page: number;
+        page_size: number;
+        total_pages: number;
+    };
+    total: number;
 }
 ```
 
-### Swap Event
+#### useTokenTransfers
+
+Fetches token transfer events.
+
+**Location**: `packages/nextjs/app/token-api/_hooks/useTokenTransfers.ts`
+
+> **Note**: Currently uses the balances endpoint as a fallback due to API limitations.
 
 ```typescript
-interface Swap {
-    tx_hash: string;
-    pool_address: string;
-    amount0_in: string;
-    amount1_in: string;
-    amount0_out: string;
-    amount1_out: string;
-    token0_address: string;
-    token0_symbol: string;
-    token1_address: string;
-    token1_symbol: string;
-    timestamp: number;
-    network_id: string;
-    value_usd?: number;
-}
-```
+export const useTokenTransfers = (
+    address: string | undefined,
+    params?: TokenTransfersParams,
+    options = { skip: address ? false : true }
+) => {
+    // Normalize the address
+    const normalizedAddress =
+        address && !address.startsWith("0x") ? `0x${address}` : address;
 
-## 📱 Component Features
+    // Use the transfers endpoint
+    const endpoint = normalizedAddress
+        ? `transfers/evm/${normalizedAddress}`
+        : "";
 
-All components share these developer-friendly features:
-
--   **Flexible Parameters**: Optional query parameters for customization
--   **Minimal Parameter Mode**: For easier initial testing
--   **Error Handling**: Comprehensive error states with user-friendly messages
--   **Loading States**: Clear loading indicators
--   **Pagination**: For navigating large datasets
--   **Responsive Design**: Works on mobile and desktop
--   **Address Components**: Uses Scaffold-ETH's `<Address>` component for Ethereum addresses
-
-## 🔄 Error Handling Examples
-
-The components include robust error handling:
-
-```typescript
-try {
-    const response = await fetch(url.toString(), {
-        method: "GET",
-        headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
+    // Call the base API hook with proper parameters
+    return useTokenApi<TokenTransfersResponse>(
+        endpoint,
+        {
+            network_id: params?.network_id,
+            age: params?.age, // Number of days to look back (1-180)
+            contract: params?.contract, // Filter by contract address
+            limit: params?.limit, // Max results (1-500)
+            page: params?.page, // Page number
+            include_prices: params?.include_prices, // Include price data
         },
-        cache: "no-store",
-    });
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error("❌ API Error Response:", errorText);
-        throw new Error(
-            `API request failed with status ${response.status}: ${errorText}`
-        );
-    }
-
-    const data = await response.json();
-    // Process data...
-} catch (err) {
-    const errorMessage =
-        err instanceof Error ? err.message : "An error occurred";
-    console.error("❌ Error fetching data:", err);
-    setError(errorMessage);
-    // Handle UI state...
-}
-```
-
-## 🎨 Styling
-
-The application uses Tailwind CSS with DaisyUI components for a consistent, responsive UI. All components follow these styling principles:
-
--   **Collapsible Containers**: Components use a standardized details/summary pattern for better space management
--   **Card-Based Layout**: Content is organized in distinct cards with consistent styling
--   **Responsive Design**: All components adapt seamlessly to different screen sizes
--   **Interactive Elements**: Buttons, forms, and tables share consistent styling and behavior
--   **Status Indicators**: Consistent loading states, error messages, and empty states
--   **Color System**: Semantic color usage for different data types and states
--   **Typography Hierarchy**: Consistent text sizing and weights for better readability
--   **Visual Feedback**: Clear indicators for interactive elements and data changes
-
-Components can be easily themed by modifying the DaisyUI theme configuration in `tailwind.config.js`.
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Getting Started
-
-### 1. Get Your API Key
-
-1. Visit [The Graph Market](https://thegraph.market/)
-2. Navigate to the "Token API" tab
-3. Click "Get API Key"
-4. Follow the authentication process
-5. Copy your API Token
-
-### 2. Set Up Environment Variables
-
-Create a `.env.local` file in the root directory and add your API key:
-
-```bash
-NEXT_PUBLIC_GRAPH_TOKEN=your_api_key_here
-```
-
-### 3. Install Dependencies
-
-```bash
-yarn install
-```
-
-### 4. Start the Development Server
-
-```bash
-yarn start
-```
-
-Open [http://localhost:3000](http://localhost:3000) to view the application.
-
-## Features
-
--   View token metadata across multiple EVM networks
--   Check token balances for any address
--   Track token transfers
--   List token holders
--   Support for multiple networks:
-    -   Ethereum Mainnet
-    -   Base
-    -   Arbitrum
-    -   BSC
-    -   Optimism
-
-## Built With
-
--   Next.js
--   Scaffold-ETH 2
--   Tailwind CSS
--   DaisyUI
-
-## 🧰 Hook Documentation for Scaffold-ETH
-
-Please reference the [Scaffold-ETH docs](https://docs.scaffoldeth.io/)
-
-## 🧩 Component Documentation for Scaffold-ETH
-
-Please reference the [Scaffold-ETH docs](https://docs.scaffoldeth.io/)
-
-## 🪝 Token API Hooks Documentation
-
-The Token API Explorer provides a set of React hooks to interact with The Graph Token API. These hooks handle data fetching, caching, error handling, and state management, making it easier to integrate token data into your application.
-
-### useTokenApi
-
-The base hook that all other hooks extend. It provides the core functionality for interacting with the Token API.
-
-```typescript
-import { useTokenApi } from "~~/app/token-api/_hooks/useTokenApi";
-
-// Usage example
-const { data, isLoading, error, refetch, lastUpdated } =
-    useTokenApi<YourDataType>(
-        "endpoint/path",
-        { param1: "value1", param2: "value2" },
-        { skip: false, refetchInterval: 30000 }
+        options
     );
+};
 ```
 
-**Parameters:**
-
--   `endpoint`: API endpoint path without leading slash
--   `params`: Query parameters object
--   `options`:
-    -   `skip`: Whether to skip the API call (default: false)
-    -   `refetchInterval`: Interval in milliseconds to refetch data
-
-**Returns:**
-
--   `data`: The fetched data or undefined
--   `isLoading`: Boolean indicating if the request is in progress
--   `error`: Error message if the request failed
--   `refetch`: Function to manually trigger a refetch
--   `lastUpdated`: Timestamp of the last successful update
-
-### useTokenBalances
-
-Fetches token balances for a given address across supported networks.
-
-```typescript
-import { useTokenBalances } from "~~/app/token-api/_hooks/useTokenBalances";
-
-// Basic usage
-const { data: balances, isLoading, error } = useTokenBalances("0x1234...abcd");
-
-// With filter parameters
-const { data: filteredBalances } = useTokenBalances(address, {
-    network_id: "mainnet",
-    page: 1,
-    page_size: 20,
-    min_amount: "1000000",
-});
-```
-
-**Parameters:**
-
--   `address`: Wallet address to fetch balances for
--   `params`: Optional filter parameters
-    -   `network_id`: Network identifier
-    -   `page`: Page number for pagination
-    -   `page_size`: Number of results per page
-    -   `min_amount`: Minimum token amount
-    -   `contract_address`: Filter by specific token contract
--   `options`: Hook options (passed to useTokenApi)
-
-**Returns:**
-
--   Same as useTokenApi, with `data` being an array of TokenBalance objects
-
-### useTokenHolders
-
-Fetches holder information for a specific token contract.
-
-```typescript
-import { useTokenHolders } from "~~/app/token-api/_hooks/useTokenHolders";
-
-// Basic usage
-const { data: holders } = useTokenHolders(
-    "0xc944E90C64B2c07662A292be6244BDf05Cda44a7"
-);
-
-// With parameters
-const { data: holders } = useTokenHolders(contractAddress, {
-    network_id: "mainnet",
-    page: 1,
-    page_size: 50,
-    order_by: "desc",
-});
-```
-
-**Parameters:**
-
--   `contractAddress`: Token contract address
--   `params`: Optional filter parameters
-    -   `network_id`: Network identifier
-    -   `page`: Page number for pagination
-    -   `page_size`: Number of results per page
-    -   `order_by`: Sort order for results ("asc" or "desc")
--   `options`: Hook options
-
-**Returns:**
-
--   Same as useTokenApi, with `data` being an array of TokenHolder objects
-
-### useTokenMetadata
-
-Fetches detailed metadata for a token contract.
-
-```typescript
-import { useTokenMetadata } from "~~/app/token-api/_hooks/useTokenMetadata";
-
-// Basic usage
-const { data: tokenInfo } = useTokenMetadata(
-    "0x4200000000000000000000000000000000000042"
-);
-
-// With parameters
-const { data: tokenInfo } = useTokenMetadata(contractAddress, {
-    network_id: "optimism",
-});
-```
-
-**Parameters:**
-
--   `contractAddress`: Token contract address
--   `params`: Optional parameters
-    -   `network_id`: Network identifier
--   `options`: Hook options
-
-**Returns:**
-
--   Same as useTokenApi, with `data` containing token metadata
-
-### useTokenTransfers
-
-Fetches token transfer events for an address or contract.
-
-```typescript
-import { useTokenTransfers } from "~~/app/token-api/_hooks/useTokenTransfers";
-
-// Basic usage
-const { data: transfers } = useTokenTransfers("0x1234...abcd");
-
-// With parameters
-const { data: transfers } = useTokenTransfers(address, {
-    network_id: "base",
-    page_size: 100,
-    days: 30,
-    contract_address: "0x4200000000000000000000000000000000000042",
-});
-```
-
-**Parameters:**
-
--   `address`: Wallet address or contract address
--   `params`: Optional filter parameters
-    -   `network_id`: Network identifier
-    -   `page_size`: Number of results per page
-    -   `page`: Page number for pagination
-    -   `days`: Number of days to look back
-    -   `contract_address`: Filter by specific token contract
--   `options`: Hook options
-
-**Returns:**
-
--   Same as useTokenApi, with `data` being an array of TokenTransfer objects
-
-### useHistoricalBalances
-
-Fetches historical balance data for an address.
-
-```typescript
-import { useHistoricalBalances } from "~~/app/token-api/_hooks/useHistoricalBalances";
-
-// Basic usage
-const { data: historicalData } = useHistoricalBalances("0x1234...abcd");
-
-// With parameters
-const { data: historicalData } = useHistoricalBalances(address, {
-    network_id: "mainnet",
-    contract_address: "0xc944E90C64B2c07662A292be6244BDf05Cda44a7",
-    days: 90,
-    interval: "day",
-});
-```
-
-**Parameters:**
+**Parameters**:
 
 -   `address`: Wallet address
--   `params`: Optional filter parameters
+-   `params`: Optional parameters
     -   `network_id`: Network identifier
-    -   `contract_address`: Token contract address
-    -   `days`: Number of days to look back
-    -   `interval`: Time interval for data points ("day", "week", "month")
+    -   `age`: Days to look back (1-180)
+    -   `contract`: Filter by token contract
+    -   `limit`: Results per page (1-500)
+    -   `page`: Page number
+    -   `include_prices`: Include price data
 -   `options`: Hook options
 
-**Returns:**
-
--   Same as useTokenApi, with `data` being an array of HistoricalBalance objects
-
-### useTokenOHLCByPool
-
-Fetches OHLC (Open, High, Low, Close) price data for a DEX liquidity pool.
+**Response Type**:
 
 ```typescript
-import { useTokenOHLCByPool } from "~~/app/token-api/_hooks/useTokenOHLCByPool";
+interface TokenTransferItem {
+    block_num: number;
+    datetime?: string;
+    timestamp?: number;
+    date?: string;
+    contract: string;
+    from: string;
+    to: string;
+    amount: string;
+    transaction_id: string;
+    decimals: number;
+    symbol: string;
+    network_id: string;
+    price_usd?: number;
+    value_usd?: number;
+}
 
-// Basic usage
-const { data: ohlcData } = useTokenOHLCByPool(
-    "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640"
-);
-
-// With parameters
-const { data: ohlcData } = useTokenOHLCByPool(poolAddress, {
-    network_id: "mainnet",
-    days: 30,
-    interval: "hour",
-});
+interface TokenTransfersResponse {
+    data: TokenTransferItem[];
+    pagination?: {
+        page: number;
+        page_size: number;
+        total_pages: number;
+    };
+    total_results?: number;
+}
 ```
 
-**Parameters:**
+#### useTokenOHLCByPool
 
--   `poolAddress`: DEX pool contract address
--   `params`: Optional filter parameters
+Fetches price history for a liquidity pool.
+
+**Location**: `packages/nextjs/app/token-api/_hooks/useTokenOHLCByPool.ts`
+
+```typescript
+export function useTokenOHLCByPool(
+    pool: string | undefined,
+    params?: PoolOHLCParams,
+    options = { skip: false }
+) {
+    // Normalize and clean the pool address
+    const normalizedPool = pool ? cleanContractAddress(pool) : undefined;
+
+    // Default skip to true if no pool address is provided
+    const skip = options.skip || !normalizedPool;
+
+    // Create the endpoint path
+    const endpoint = normalizedPool ? `ohlc/pools/evm/${normalizedPool}` : "";
+
+    // Call the base API hook with the proper configuration
+    return useTokenApi<PoolOHLCResponse>(
+        endpoint,
+        { ...params },
+        { ...options, skip }
+    );
+}
+```
+
+**Parameters**:
+
+-   `pool`: Pool contract address
+-   `params`: Optional parameters
     -   `network_id`: Network identifier
-    -   `days`: Number of days to look back
-    -   `interval`: Time interval for data points ("hour", "day", "week")
+    -   `from_timestamp`: Start timestamp
+    -   `to_timestamp`: End timestamp
+    -   `resolution`: Data resolution ("5m", "15m", "30m", "1h", "2h", "4h", "1d", "1w")
+    -   `page`: Page number
+    -   `page_size`: Results per page
 -   `options`: Hook options
 
-**Returns:**
-
--   Same as useTokenApi, with `data` being an array of OHLC data points
-
-### useTokenOHLCByContract
-
-Fetches OHLC price data for a token contract.
+**Response Type**:
 
 ```typescript
-import { useTokenOHLCByContract } from "~~/app/token-api/_hooks/useTokenOHLCByContract";
+interface OHLCDataPoint {
+    timestamp: number;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume_token0: number;
+    volume_token1: number;
+    volume_usd?: number;
+}
 
-// Basic usage
-const { data: ohlcData } = useTokenOHLCByContract(
-    "0x4200000000000000000000000000000000000042"
-);
-
-// With parameters
-const { data: ohlcData } = useTokenOHLCByContract(contractAddress, {
-    network_id: "optimism",
-    days: 180,
-    interval: "day",
-});
+interface PoolOHLCResponse {
+    ohlc?: OHLCDataPoint[];
+    pool_address?: string;
+    token0_address?: string;
+    token0_symbol?: string;
+    token1_address?: string;
+    token1_symbol?: string;
+    protocol?: string;
+    network_id?: string;
+    resolution?: string;
+    pagination?: {
+        page: number;
+        page_size: number;
+        total_pages: number;
+    };
+}
 ```
 
-**Parameters:**
+#### useTokenOHLCByContract
 
--   `contractAddress`: Token contract address
--   `params`: Optional filter parameters
+Fetches price history for a token contract.
+
+**Location**: `packages/nextjs/app/token-api/_hooks/useTokenOHLCByContract.ts`
+
+```typescript
+export function useTokenOHLCByContract(
+    options: UseTokenOHLCByContractOptions = {}
+) {
+    const {
+        contract,
+        network,
+        timeframe = 86400,
+        limit = 100,
+        enabled = true,
+    } = options;
+
+    const normalizedContract = contract?.toLowerCase();
+
+    // Create a valid endpoint path string
+    const endpoint = normalizedContract
+        ? `ohlc/prices/evm/${normalizedContract}`
+        : "";
+
+    return useTokenApi<ContractOHLCResponse>(
+        endpoint,
+        {
+            network_id: network,
+            interval: timeframe === 86400 ? "1d" : "1h", // Map timeframe to an interval
+            limit,
+        },
+        {
+            skip: !normalizedContract || !enabled,
+        }
+    );
+}
+```
+
+**Parameters**:
+
+-   `options`: Configuration options
+    -   `contract`: Token contract address
+    -   `network`: Network identifier
+    -   `timeframe`: Time interval in seconds (default: 86400)
+    -   `limit`: Number of results (default: 100)
+    -   `enabled`: Whether to enable the query (default: true)
+
+**Response Type**:
+
+```typescript
+interface ContractOHLCResponse {
+    contract_address?: string;
+    token_name?: string;
+    token_symbol?: string;
+    token_decimals?: number;
+    network_id?: NetworkId;
+    resolution?: string;
+    ohlc?: OHLCDataPoint[];
+    data?: Array<{
+        datetime: string;
+        ticker: string;
+        open: number;
+        high: number;
+        low: number;
+        close: number;
+        volume: number;
+    }>;
+}
+```
+
+#### useTokenPools
+
+Fetches information about liquidity pools.
+
+**Location**: `packages/nextjs/app/token-api/_hooks/useTokenPools.ts`
+
+```typescript
+export const useTokenPools = (params?: PoolsParams, options = {}) => {
+    return useTokenApi<PoolsResponse>("pools/evm", { ...params }, options);
+};
+```
+
+**Parameters**:
+
+-   `params`: Optional parameters
     -   `network_id`: Network identifier
-    -   `days`: Number of days to look back
-    -   `interval`: Time interval for data points ("hour", "day", "week")
+    -   `token`: Filter by token address
+    -   `pool`: Filter by pool address
+    -   `symbol`: Filter by token symbol
+    -   `factory`: Filter by factory address
+    -   `protocol`: Filter by protocol
+    -   `page`: Page number
+    -   `page_size`: Results per page
+    -   `sort_by`: Sort field ("tvl" or "creation_date")
+    -   `sort_direction`: Sort direction ("asc" or "desc")
+    -   `include_reserves`: Include reserve data
 -   `options`: Hook options
 
-**Returns:**
-
--   Same as useTokenApi, with `data` being an array of OHLC data points
-
-### useTokenSwaps
-
-Fetches DEX swap events across supported networks.
+**Response Type**:
 
 ```typescript
-import { useTokenSwaps } from "~~/app/token-api/_hooks/useTokenSwaps";
+interface Pool {
+    block_num: number;
+    datetime: string;
+    transaction_id: string;
+    factory: string;
+    pool: string;
+    token0: TokenInfo;
+    token1: TokenInfo;
+    fee: number;
+    protocol: string;
+    network_id: string;
+}
 
-// Basic usage
-const { data: swaps } = useTokenSwaps({
-    network_id: "mainnet",
-});
-
-// With parameters
-const { data: swaps } = useTokenSwaps({
-    network_id: "mainnet",
-    pool_address: "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
-    page: 1,
-    page_size: 50,
-});
+interface PoolsResponse {
+    data: Pool[];
+    pagination: {
+        previous_page: number;
+        current_page: number;
+        next_page: number;
+        total_pages: number;
+    };
+    total_results: number;
+}
 ```
 
-**Parameters:**
+#### useTokenSwaps
 
--   `params`: Optional filter parameters
-    -   `network_id`: Network identifier
-    -   `pool`: Filter by specific pool address
+Fetches DEX swap events.
+
+**Location**: `packages/nextjs/app/token-api/_hooks/useTokenSwaps.ts`
+
+```typescript
+export const useTokenSwaps = (
+    params: SwapsParams,
+    options: { skip?: boolean } = {}
+) => {
+    return useTokenApi<Swap[]>("swaps/evm", params, options);
+};
+```
+
+**Parameters**:
+
+-   `params`: Query parameters
+    -   `network_id`: Network identifier (required)
+    -   `pool`: Filter by pool address
     -   `caller`: Filter by caller address
     -   `sender`: Filter by sender address
     -   `recipient`: Filter by recipient address
     -   `tx_hash`: Filter by transaction hash
-    -   `protocol`: Filter by protocol (e.g., "uniswap_v3")
-    -   `page`: Page number for pagination
-    -   `page_size`: Number of results per page
+    -   `protocol`: Filter by protocol
+    -   `page`: Page number
+    -   `page_size`: Results per page
 -   `options`: Hook options
 
-**Returns:**
-
--   Same as useTokenApi, with `data` being an array of Swap objects with the following structure:
+**Response Type**:
 
 ```typescript
 interface Swap {
@@ -973,522 +742,386 @@ interface Swap {
     sender: string;
     recipient: string;
     network_id: string;
-    amount0: string; // Raw token0 amount
-    amount1: string; // Raw token1 amount
-    token0?:
-        | {
-              // Token0 information
-              address: string; // Token0 contract address
-              symbol: string; // Token0 symbol
-              decimals: number; // Token0 decimals
-          }
-        | string;
-    token1?:
-        | {
-              // Token1 information
-              address: string; // Token1 contract address
-              symbol: string; // Token1 symbol
-              decimals: number; // Token1 decimals
-          }
-        | string;
-    token0_symbol?: string; // Legacy field
-    token1_symbol?: string; // Legacy field
-    amount0_usd?: number; // USD value of token0 amount
-    amount1_usd?: number; // USD value of token1 amount
-    value0?: number; // Formatted token0 value
-    value1?: number; // Formatted token1 value
-    price0?: number; // Token0 price
-    price1?: number; // Token1 price
-    protocol?: string; // Protocol name (e.g., "uniswap_v3")
+    amount0: string;
+    amount1: string;
+    token0?: { address: string; symbol: string; decimals: number } | string;
+    token1?: { address: string; symbol: string; decimals: number } | string;
+    amount0_usd?: number;
+    amount1_usd?: number;
+    protocol?: string;
 }
 ```
 
-### useTokenPools
+## UI Components
 
-Fetches DEX liquidity pool information.
+### Common Patterns
 
-```typescript
-import { useTokenPools } from "~~/app/token-api/_hooks/useTokenPools";
+All components follow these common patterns:
 
-// Basic usage
-const { data: pools } = useTokenPools();
+1. **Collapsible UI**: Uses `<details>` and `<summary>` for better space management
+2. **Form Inputs**: Uses Scaffold-ETH components for address inputs
+3. **Loading States**: Clear loading indicators during API requests
+4. **Error Handling**: User-friendly error messages
+5. **Network Selection**: Dropdown for network selection
+6. **Pagination**: For navigating large result sets
+7. **Responsive Design**: Works on all screen sizes
 
-// With parameters
-const { data: pools } = useTokenPools({
-    network_id: "mainnet",
-    token_address: "0xc944E90C64B2c07662A292be6244BDf05Cda44a7",
-    page: 1,
-    page_size: 20,
-});
-```
+### Component Gallery
 
-**Parameters:**
+The SDK includes UI components for each data type:
 
--   `params`: Optional filter parameters
-    -   `network_id`: Network identifier
-    -   `token_address`: Filter by specific token address
-    -   `min_tvl_usd`: Minimum Total Value Locked in USD
-    -   `page`: Page number for pagination
-    -   `page_size`: Number of results per page
--   `options`: Hook options
+-   **GetMetadata**: Displays token metadata information
+-   **GetBalances**: Shows token balances for an address
+-   **GetHolders**: Lists token holders with pagination
+-   **GetTransfers**: Displays token transfer history
+-   **GetOHLCByContract**: Shows price charts for tokens
+-   **GetOHLCByPool**: Shows price charts for liquidity pools
+-   **GetSwaps**: Displays DEX swap events
+-   **GetPools**: Lists liquidity pools
 
-**Returns:**
+Example usage:
 
--   Same as useTokenApi, with `data` being an array of Pool objects
-
-## 🔍 Token API Component Documentation
-
-### GetHolders Component
-
-Displays token holder information with pagination and filtering.
-
-```typescript
-import { GetHolders } from "~~/app/token-api/_components/GetHolders";
-
-// Basic usage
-<GetHolders />
-
-// With custom contract and network
-<GetHolders
-  initialContractAddress="0xc944E90C64B2c07662A292be6244BDf05Cda44a7"
-  initialNetwork="mainnet"
-  isOpen={true}
-/>
-```
-
-### GetBalances Component
-
-Displays token balances for any address across supported networks.
-
-```typescript
+```tsx
+import { GetMetadata } from "~~/app/token-api/_components/GetMetadata";
 import { GetBalances } from "~~/app/token-api/_components/GetBalances";
 
-// Basic usage
-<GetBalances />
-
-// With custom address and network
-<GetBalances
-  initialAddress="0x1234..."
-  initialNetwork="arbitrum-one"
-  isOpen={true}
-/>
-```
-
-### GetTransfers Component
-
-Displays token balances formatted as transfers with proper decimal formatting.
-
-```typescript
-import { GetTransfers } from "~~/app/token-api/_components/GetTransfers";
-
-// Basic usage
-<GetTransfers />
-
-// With custom address/contract and network
-<GetTransfers
-  initialAddress="0x1234..."
-  initialNetwork="base"
-  isOpen={true}
-/>
-```
-
-**Features:**
-
--   Shows token contract addresses instead of "from" addresses
--   Formats token amounts properly based on token decimals
--   Displays both formatted and raw amounts when they differ
--   Connects to the balances API endpoint to fetch token data
-
-### GetMetadata Component
-
-Displays detailed token metadata information.
-
-```typescript
-import { GetMetadata } from "~~/app/token-api/_components/GetMetadata";
-
-// Basic usage
-<GetMetadata />
-
-// With custom contract and network
-<GetMetadata
-  initialContractAddress="0x4200000000000000000000000000000000000042"
-  initialNetwork="optimism"
-  isOpen={true}
-/>
-```
-
-### GetHistorical Component
-
-Displays historical balance data with filtering options.
-
-```typescript
-import { GetHistorical } from "~~/app/token-api/_components/GetHistorical";
-
-// Basic usage
-<GetHistorical />
-
-// With custom address and network
-<GetHistorical
-  initialAddress="0x1234..."
-  initialNetwork="mainnet"
-  isOpen={true}
-/>
-```
-
-### GetOHLCByPool Component
-
-Displays interactive price history charts for DEX liquidity pools with comprehensive filtering options and data visualization.
-
-```typescript
-import { GetOHLCByPool } from "~~/app/token-api/_components/GetOHLCByPool";
-
-// Basic usage
-<GetOHLCByPool />
-
-// With custom pool address and network
-<GetOHLCByPool
-  initialPoolAddress="0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640"
-  initialNetwork="mainnet"
-  isOpen={true}
-/>
-```
-
-**Key Features:**
-
--   Collapsible UI with intuitive navigation
--   Detailed pool information display (token pair, protocol)
--   Multiple time range and interval selection options
--   Color-coded price change indicators
--   Example DEX pools across different networks
--   Comprehensive error states and loading indicators
--   Paginated results with responsive table layout
-
-### GetOHLCByContract Component
-
-Displays price history charts for token contracts.
-
-```typescript
-import { GetOHLCByContract } from "~~/app/token-api/_components/GetOHLCByContract";
-
-// Basic usage
-<GetOHLCByContract />
-
-// With custom contract and network
-<GetOHLCByContract
-  initialContractAddress="0x4200000000000000000000000000000000000042"
-  initialNetwork="optimism"
-  isOpen={true}
-/>
-```
-
-### GetSwaps Component
-
-Displays DEX swap events with filtering options.
-
-```typescript
-import { GetSwaps } from "~~/app/token-api/_components/GetSwaps";
-
-// Basic usage
-<GetSwaps />
-
-// With custom network
-<GetSwaps
-  initialNetwork="mainnet"
-  isOpen={true}
-/>
-```
-
-### GetPools Component
-
-Displays DEX liquidity pool information.
-
-```typescript
-import { GetPools } from "~~/app/token-api/_components/GetPools";
-
-// Basic usage
-<GetPools />
-
-// With custom network
-<GetPools
-  initialNetwork="mainnet"
-  isOpen={true}
-/>
-```
-
-## 🚀 Tutorial: Setting Up and Using Hooks
-
-This tutorial shows how to build a simple token dashboard using Scaffold-ETH hooks.
-
-### Step 1: Create a Basic Component Structure
-
-**What this step accomplishes:** Sets up the foundation for your token dashboard by creating the basic component structure and importing necessary hooks.
-
-```typescript
-// pages/token-dashboard.tsx
-import { useAccount } from "wagmi";
-import { useState, useEffect } from "react";
-import { Address, Balance } from "~~/components/scaffold-eth";
-import {
-    useScaffoldReadContract,
-    useScaffoldWriteContract,
-    useScaffoldEventHistory,
-} from "~~/hooks/scaffold-eth";
-
-export default function TokenDashboard() {
-    const { address } = useAccount();
-    const [recipient, setRecipient] = useState("");
-    const [amount, setAmount] = useState("");
-
+export default function YourPage() {
     return (
-        <div className="flex flex-col gap-4 p-4">
-            <h1 className="text-2xl font-bold">Token Dashboard</h1>
-            {/* We'll add more functionality in the next steps */}
+        <div>
+            <GetMetadata
+                initialContractAddress="0xc944E90C64B2c07662A292be6244BDf05Cda44a7"
+                initialNetwork="mainnet"
+                isOpen={true}
+            />
+            <GetBalances
+                initialAddress="0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
+                initialNetwork="mainnet"
+                isOpen={true}
+            />
         </div>
     );
 }
 ```
 
-### Step 2: Read Token Information Using Hooks
+## Configuration System
 
-**What this step accomplishes:** Implements reading data from your token contract using the `useScaffoldReadContract` hook to display basic token information like name, symbol, decimals, and user's balance.
+### Network Configuration
 
-```typescript
-// Inside TokenDashboard component, add these hooks
-const { data: tokenName } = useScaffoldReadContract({
-    contractName: "YourToken",
-    functionName: "name",
-});
+**Location**: `packages/nextjs/app/token-api/_config/networks.ts`
 
-const { data: tokenSymbol } = useScaffoldReadContract({
-    contractName: "YourToken",
-    functionName: "symbol",
-});
-
-const { data: tokenDecimals } = useScaffoldReadContract({
-    contractName: "YourToken",
-    functionName: "decimals",
-});
-
-const { data: userBalance, refetch: refetchBalance } = useScaffoldReadContract({
-    contractName: "YourToken",
-    functionName: "balanceOf",
-    args: [address],
-    watch: true, // Automatically update when new blocks are mined
-});
-```
-
-**Add the UI to display the token information:**
+Defines supported networks and provides helper functions:
 
 ```typescript
-// Add this to your return statement
-<div className="card bg-base-100 shadow-xl p-4">
-    <h2 className="text-xl font-bold">
-        {tokenName} ({tokenSymbol})
-    </h2>
-    <p>Decimals: {tokenDecimals?.toString()}</p>
-    <p>Your Balance: {userBalance?.toString()}</p>
-</div>
-```
+export const EVM_NETWORKS: EVMNetwork[] = [
+    { id: "mainnet", name: "Ethereum", blockExplorer: "https://etherscan.io" },
+    { id: "base", name: "Base", blockExplorer: "https://basescan.org" },
+    {
+        id: "arbitrum-one",
+        name: "Arbitrum",
+        blockExplorer: "https://arbiscan.io",
+    },
+    { id: "bsc", name: "BSC", blockExplorer: "https://bscscan.com" },
+    {
+        id: "optimism",
+        name: "Optimism",
+        blockExplorer: "https://optimistic.etherscan.io",
+    },
+    { id: "matic", name: "Polygon", blockExplorer: "https://polygonscan.com" },
+];
 
-### Step 3: Add Token Transfer Functionality
-
-**What this step accomplishes:** Implements the ability to transfer tokens to other addresses using the `useScaffoldWriteContract` hook, which handles transaction submission and state management.
-
-```typescript
-// Inside TokenDashboard component, add this hook
-const { writeContractAsync, isLoading: isTransferring } =
-    useScaffoldWriteContract({
-        contractName: "YourToken",
-    });
-
-// Add the transfer function
-const handleTransfer = async () => {
-    if (!recipient || !amount) return;
-
-    try {
-        const parsedAmount = BigInt(amount);
-        await writeContractAsync({
-            functionName: "transfer",
-            args: [recipient, parsedAmount],
-        });
-
-        // Reset form and refresh balance after successful transfer
-        setRecipient("");
-        setAmount("");
-        refetchBalance();
-    } catch (err) {
-        console.error("Transfer failed:", err);
-    }
+// Helper functions
+export const getNetworkById = (id: NetworkId): EVMNetwork | undefined => {
+    /*...*/
+};
+export const getNetworkName = (id: NetworkId): string => {
+    /*...*/
+};
+export const getBlockExplorerTokenUrl = (
+    networkId: NetworkId,
+    tokenAddress: string
+): string => {
+    /*...*/
+};
+export const getBlockExplorerAddressUrl = (
+    networkId: NetworkId,
+    address: string
+): string => {
+    /*...*/
+};
+export const getBlockExplorerTxUrl = (
+    networkId: NetworkId,
+    txHash: string
+): string => {
+    /*...*/
 };
 ```
 
-**Add the transfer form UI:**
+### Protocol Configuration
+
+**Location**: `packages/nextjs/app/token-api/_config/protocols.ts`
+
+Defines supported protocols and provides helper functions:
 
 ```typescript
-// Add this to your return statement
-<div className="card bg-base-100 shadow-xl p-4 mt-4">
-    <h2 className="text-xl font-bold">Transfer Tokens</h2>
-    <div className="form-control">
-        <label className="label">Recipient</label>
-        <input
-            type="text"
-            className="input input-bordered"
-            value={recipient}
-            onChange={(e) => setRecipient(e.target.value)}
-            placeholder="0x..."
-        />
-    </div>
-    <div className="form-control mt-2">
-        <label className="label">Amount</label>
-        <input
-            type="text"
-            className="input input-bordered"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="100"
-        />
-    </div>
-    <button
-        className="btn btn-primary mt-4"
-        onClick={handleTransfer}
-        disabled={isTransferring || !recipient || !amount}
-    >
-        {isTransferring ? "Sending..." : "Transfer"}
-    </button>
-</div>
-```
+export const PROTOCOLS: Protocol[] = [
+    { id: "uniswap_v2", name: "Uniswap V2" },
+    { id: "uniswap_v3", name: "Uniswap V3" },
+];
 
-### Step 4: Display Transaction History
-
-**What this step accomplishes:** Implements a way to view the user's transfer history using the `useScaffoldEventHistory` hook, which fetches historical contract events with pagination support.
-
-```typescript
-// Inside TokenDashboard component, add this hook
-const {
-    data: transferEvents,
-    isLoading: isLoadingEvents,
-    fetchNextPage,
-    hasNextPage,
-} = useScaffoldEventHistory({
-    contractName: "YourToken",
-    eventName: "Transfer",
-    filters: { from: address }, // Only show transfers sent by the user
-    blockData: true, // Include block information
-    transactionData: true, // Include transaction details
-});
-```
-
-**Add the transaction history UI:**
-
-```typescript
-// Add this to your return statement
-<div className="card bg-base-100 shadow-xl p-4 mt-4">
-    <h2 className="text-xl font-bold">Your Recent Transfers</h2>
-    {isLoadingEvents ? (
-        <p>Loading transfer history...</p>
-    ) : (
-        <div className="overflow-x-auto">
-            <table className="table">
-                <thead>
-                    <tr>
-                        <th>To</th>
-                        <th>Amount</th>
-                        <th>Block</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {transferEvents?.flatMap((page) =>
-                        page.map((event, index) => (
-                            <tr key={`${event.transaction.hash}-${index}`}>
-                                <td>
-                                    <Address address={event.args.to} />
-                                </td>
-                                <td>{event.args.value.toString()}</td>
-                                <td>{event.block.number.toString()}</td>
-                            </tr>
-                        ))
-                    )}
-                </tbody>
-            </table>
-            {hasNextPage && (
-                <button
-                    className="btn btn-sm mt-2"
-                    onClick={() => fetchNextPage()}
-                >
-                    Load More
-                </button>
-            )}
-        </div>
-    )}
-</div>
-```
-
-### Step 5: Adding Error Handling and UX Improvements
-
-**What this step accomplishes:** Enhances the user experience by adding proper loading states, error handling, and visual feedback for transactions.
-
-```typescript
-// Inside TokenDashboard component, add these states
-const [error, setError] = useState("");
-const [txHash, setTxHash] = useState("");
-const [txSuccess, setTxSuccess] = useState(false);
-
-// Update the transfer function with better error handling
-const handleTransfer = async () => {
-    if (!recipient || !amount) return;
-
-    setError("");
-    setTxHash("");
-    setTxSuccess(false);
-
-    try {
-        const parsedAmount = BigInt(amount);
-        const result = await writeContractAsync({
-            functionName: "transfer",
-            args: [recipient, parsedAmount],
-        });
-
-        setTxHash(result);
-        setTxSuccess(true);
-        setRecipient("");
-        setAmount("");
-        refetchBalance();
-    } catch (err) {
-        const errorMessage =
-            err instanceof Error ? err.message : "Transaction failed";
-        setError(errorMessage);
-        console.error("Transfer failed:", err);
-    }
+// Helper functions
+export const getProtocolById = (id: ProtocolId): Protocol | undefined => {
+    /*...*/
+};
+export const getProtocolName = (id: ProtocolId): string => {
+    /*...*/
+};
+export const formatProtocolDisplay = (protocolId: ProtocolId): string => {
+    /*...*/
 };
 ```
 
-**Add success and error feedback UI:**
+### Example Tokens
+
+**Location**: `packages/nextjs/app/token-api/_config/exampleTokens.ts`
+
+Provides example tokens for each network for testing purposes:
 
 ```typescript
-// Add this to your transfer form
-{
-    error && (
-        <div className="alert alert-error mt-4">
-            <p>{error}</p>
-        </div>
-    );
-}
+export const EXAMPLE_TOKENS: Record<NetworkId, TokenExample[]> = {
+    mainnet: [
+        {
+            address: "0xc944E90C64B2c07662A292be6244BDf05Cda44a7",
+            name: "The Graph",
+            symbol: "GRT",
+            decimals: 18,
+            description: "Indexing protocol for querying networks",
+        },
+        // More tokens...
+    ],
+    // More networks...
+};
 
-{
-    txSuccess && (
-        <div className="alert alert-success mt-4">
-            <p>
-                Transfer successful! Transaction hash:{" "}
-                <a
-                    href={`https://etherscan.io/tx/${txHash}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline"
-                >
-                    {txHash.substring(0, 10)}...
-                </a>
-            </p>
-        </div>
-    );
+// Helper functions
+export const getExampleTokensForNetwork = (
+    networkId: NetworkId
+): TokenExample[] => {
+    /*...*/
+};
+export const getFirstExampleTokenForNetwork = (
+    networkId: NetworkId
+): TokenExample | undefined => {
+    /*...*/
+};
+export const getExampleTokenAddress = (networkId: NetworkId): string => {
+    /*...*/
+};
+```
+
+### Time Configuration
+
+**Location**: `packages/nextjs/app/token-api/_config/timeConfig.ts`
+
+Defines time intervals and spans for data querying:
+
+```typescript
+export const TIME_INTERVALS: TimeInterval[] = [
+    { id: "1h", name: "1 Hour" },
+    { id: "4h", name: "4 Hours" },
+    { id: "1d", name: "1 Day" },
+    { id: "1w", name: "1 Week" },
+];
+
+export const TIME_SPANS: TimeSpan[] = [
+    { id: "1d", name: "Last 24 Hours", seconds: 86400 },
+    { id: "7d", name: "Last 7 Days", seconds: 604800 },
+    { id: "30d", name: "Last 30 Days", seconds: 2592000 },
+    // More time spans...
+];
+
+// Helper functions
+export const getTimeSpanById = (id: string): TimeSpan | undefined => {
+    /*...*/
+};
+export const getTimeIntervalById = (id: string): TimeInterval | undefined => {
+    /*...*/
+};
+export const getTimeRange = (timeSpanId: string) => {
+    /*...*/
+};
+```
+
+### Block Time Utilities
+
+**Location**: `packages/nextjs/app/token-api/_config/blockTimeUtils.ts`
+
+Provides utilities for converting between block numbers and timestamps:
+
+```typescript
+// Current block numbers (estimated for May 2024)
+export const CURRENT_BLOCK_NUMBERS: Record<NetworkId, number> = {
+    mainnet: 19200000, // Ethereum mainnet
+    "arbitrum-one": 175000000, // Arbitrum
+    // More networks...
+};
+
+// Average block time in seconds for different networks
+export const BLOCK_TIMES: Record<NetworkId, number> = {
+    mainnet: 12, // Ethereum mainnet
+    "arbitrum-one": 0.25, // Arbitrum
+    // More networks...
+};
+
+// Helper function to estimate date from block number and network
+export const estimateDateFromBlock = (
+    blockNum: number | undefined,
+    networkId: NetworkId
+): Date => {
+    /*...*/
+};
+```
+
+## Utility Functions
+
+### Address Utilities
+
+**Location**: `packages/nextjs/app/token-api/_utils/utils.ts`
+
+Provides utilities for working with addresses:
+
+```typescript
+/**
+ * Cleans a contract address by removing spaces, converting to lowercase, and ensuring 0x prefix
+ * @param address The contract address to clean
+ * @returns The cleaned address
+ */
+export function cleanContractAddress(address?: string): string {
+    if (!address) return "";
+
+    // Remove spaces, convert to lowercase
+    let cleaned = address.trim().toLowerCase();
+
+    // Ensure it has the 0x prefix
+    if (!cleaned.startsWith("0x")) {
+        cleaned = "0x" + cleaned;
+    }
+
+    return cleaned;
 }
 ```
+
+## Type System
+
+### Common Types
+
+**Location**: `packages/nextjs/app/token-api/_types/common.ts`
+
+Defines common types used throughout the SDK:
+
+```typescript
+/**
+ * EVM Network information
+ */
+export interface EVMNetwork {
+    id: NetworkId;
+    name: string;
+    icon?: string;
+}
+```
+
+## Example Usage
+
+Test page implementation showing comprehensive hook usage:
+
+```tsx
+// packages/nextjs/app/test/page.tsx
+export default function TestPage() {
+    // Common state for all hooks
+    const [contractAddress, setContractAddress] = useState<string>(
+        "0xc944E90C64B2c07662A292be6244BDf05Cda44a7"
+    );
+    const [walletAddress, setWalletAddress] = useState<string>(
+        "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
+    );
+    const [selectedNetwork, setSelectedNetwork] =
+        useState<NetworkId>("mainnet");
+    const [shouldFetch, setShouldFetch] = useState<boolean>(false);
+    const [poolAddress, setPoolAddress] = useState<string>(
+        "0x1d42064Fc4Beb5F8aAF85F4617AE8b3b5B8Bd801"
+    );
+
+    // Initialize all hooks with skip=true until user triggers fetch
+    const { data: metadataData, refetch: refetchMetadata } = useTokenMetadata(
+        contractAddress,
+        { network_id: selectedNetwork },
+        { skip: !shouldFetch }
+    );
+
+    const { data: balancesData, refetch: refetchBalances } = useTokenBalances(
+        walletAddress,
+        { network_id: selectedNetwork },
+        { skip: !shouldFetch }
+    );
+
+    // More hooks...
+
+    // Fetch all data when button is clicked
+    const fetchAllData = () => {
+        setShouldFetch(true);
+
+        refetchMetadata?.();
+        refetchBalances?.();
+        // More refetch calls...
+    };
+
+    // Render UI with all data...
+}
+```
+
+## API Endpoint References
+
+| Endpoint                     | Description      | Hook                   | Component         |
+| ---------------------------- | ---------------- | ---------------------- | ----------------- |
+| `tokens/evm/{contract}`      | Token metadata   | useTokenMetadata       | GetMetadata       |
+| `balances/evm/{address}`     | Token balances   | useTokenBalances       | GetBalances       |
+| `holders/evm/{contract}`     | Token holders    | useTokenHolders        | GetHolders        |
+| `transfers/evm/{address}`    | Token transfers  | useTokenTransfers      | GetTransfers      |
+| `ohlc/pools/evm/{pool}`      | Pool price data  | useTokenOHLCByPool     | GetOHLCByPool     |
+| `ohlc/prices/evm/{contract}` | Token price data | useTokenOHLCByContract | GetOHLCByContract |
+| `pools/evm`                  | Liquidity pools  | useTokenPools          | GetPools          |
+| `swaps/evm`                  | DEX swap events  | useTokenSwaps          | GetSwaps          |
+
+## Troubleshooting
+
+Common issues and solutions:
+
+1. **API Authentication Errors**:
+
+    - Ensure you have set up the environment variables correctly
+    - Check that your API token is valid and not expired
+
+2. **404 Not Found Errors**:
+
+    - Some endpoints may not be fully implemented in the API
+    - Check the API documentation for supported endpoints
+    - Try using an alternative endpoint (e.g., balances instead of transfers)
+
+3. **Empty Results**:
+
+    - Verify that the address/contract exists on the selected network
+    - Try a different time range or page number
+    - Check the API documentation for parameter constraints
+
+4. **Hook Skipping Fetches**:
+    - Make sure the `skip` option is set correctly
+    - Ensure address/contract parameters are valid
+
+## Contributing
+
+Contributions are welcome! Please follow these steps:
+
+1. Fork the repository
+2. Create a new branch for your feature
+3. Add tests for your changes
+4. Submit a pull request
+
+When adding a new hook or component, please follow the existing patterns and naming conventions.
