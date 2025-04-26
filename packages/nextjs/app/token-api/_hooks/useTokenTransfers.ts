@@ -65,7 +65,6 @@ export interface TokenTransfersResponse {
 
 /**
  * Parameters for token transfers API call
- * Based on https://token-api.service.stage.pinax.network/#tag/evm/GET/transfers/evm/{address}
  */
 export interface TokenTransfersParams {
   network_id?: NetworkId; // Network ID (mainnet, arbitrum-one, base, bsc, matic, optimism)

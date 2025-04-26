@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 // Get the API URL from the environment variables or use the correct stage URL
-const API_URL = process.env.NEXT_PUBLIC_GRAPH_API_URL || "https://token-api.service.stage.pinax.network";
+const API_URL = process.env.NEXT_PUBLIC_GRAPH_API_URL || "https://token-api.thegraph.com";
 
 /**
  * Proxy API Handler for Token API requests
