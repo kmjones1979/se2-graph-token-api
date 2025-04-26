@@ -65,26 +65,26 @@ export interface TokenTransfersResponse {
 
 /**
  * Parameters for token transfers API call
+ * Based on https://token-api.service.stage.pinax.network/#tag/evm/GET/transfers/evm/{address}
  */
 export interface TokenTransfersParams {
-  network_id?: NetworkId;
-  contract_address?: string;
-  from_address?: string;
-  to_address?: string;
-  token_type?: "erc20" | "erc721" | "erc1155";
-  page?: number;
-  page_size?: number;
-  start_block?: number;
-  end_block?: number;
-  start_timestamp?: number;
-  end_timestamp?: number;
-  include_prices?: boolean;
+  network_id?: NetworkId; // Network ID (mainnet, arbitrum-one, base, bsc, matic, optimism)
+  age?: number; // Number of days to look back (1-180, default: 30)
+  contract?: string; // Filter by contract address
+  limit?: number; // Maximum number of items returned (1-500, default: 10)
+  page?: number; // Page number of results (≥ 1, default: 1)
+
+  // The following parameters are optional and may be supported
+  low_liquidity?: boolean; // Include low liquidity tokens
+  start_date?: string; // Start date for filtering in ISO format
+  end_date?: string; // End date for filtering in ISO format
+  include_prices?: boolean; // Include price information
 }
 
 /**
  * Hook to fetch token transfers
  *
- * @param address - Contract or wallet address
+ * @param address - Wallet address to query for transfers
  * @param params - Optional parameters
  * @param options - Hook options
  * @returns Token transfers data and functions
@@ -97,20 +97,25 @@ export const useTokenTransfers = (
   // Normalize the address (ensure it has 0x prefix)
   const normalizedAddress = address && !address.startsWith("0x") ? `0x${address}` : address;
 
-  const result = useTokenApi<TokenTransfersResponse | { data: TokenTransferItem[] }>(
-    normalizedAddress ? `transfers/evm/${normalizedAddress}` : "",
-    { ...params },
+  // Use the correct endpoint format according to Pinax API docs
+  const endpoint = normalizedAddress ? `transfers/evm/${normalizedAddress}` : "";
+
+  // Call the base API hook with the proper parameters
+  const result = useTokenApi<TokenTransfersResponse>(
+    endpoint,
+    {
+      network_id: params?.network_id,
+      age: params?.age,
+      contract: params?.contract,
+      limit: params?.limit,
+      page: params?.page,
+      low_liquidity: params?.low_liquidity,
+      start_date: params?.start_date,
+      end_date: params?.end_date,
+      include_prices: params?.include_prices,
+    },
     options,
   );
 
-  // Handle both response formats
-  const formattedData: TokenTransfersResponse =
-    result.data && "data" in result.data && !("transfers" in result.data) && !("statistics" in result.data)
-      ? { data: result.data.data }
-      : (result.data as TokenTransfersResponse);
-
-  return {
-    ...result,
-    data: formattedData,
-  };
+  return result;
 };

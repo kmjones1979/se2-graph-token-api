@@ -30,7 +30,9 @@ export const GetTransfers = ({ isOpen = true }: { isOpen?: boolean }) => {
     walletAddress,
     {
       network_id: selectedNetwork,
-      page_size: 100,
+      limit: limit,
+      page: page,
+      age: age,
     },
     { skip: true }, // Always skip initial fetch
   );
@@ -176,32 +178,32 @@ export const GetTransfers = ({ isOpen = true }: { isOpen?: boolean }) => {
       // Ensure the address has 0x prefix
       const formattedAddress = walletAddress.startsWith("0x") ? walletAddress : `0x${walletAddress}`;
 
-      // Try a different endpoint format based on Pinax API documentation
-      // Instead of transfers/evm/{address}, try just transfers with address as a param
+      // Match how the balances endpoint is accessed since it's working
       const endpoint = `balances/evm/${formattedAddress}`;
       console.log("🔍 API endpoint:", endpoint);
 
-      // Build the query parameters
+      // Build the query parameters for the proxy API
       const queryParams = new URLSearchParams();
       queryParams.append("path", endpoint);
       queryParams.append("network_id", selectedNetwork);
-      // Don't include age parameter for balances endpoint
-      queryParams.append("page_size", limit.toString());
+      queryParams.append("limit", limit.toString());
       queryParams.append("page", pageNum.toString());
 
-      // Call the API directly
+      // Call the API through the proxy that's working for balances
       const fullUrl = `/api/token-proxy?${queryParams.toString()}`;
-      console.log("🔍 Making direct API request to:", fullUrl);
+      console.log("🔍 Making API request to:", fullUrl);
 
       try {
         const response = await fetch(fullUrl);
         console.log("🔍 API response status:", response.status);
 
-        // Handle 404 responses with "No data found" message more gracefully
+        // Handle 404 responses
         if (response.status === 404) {
           console.log("⚠️ API returned 404 - No data found for this wallet");
           setTransfers([]);
-          return; // Exit without throwing an error
+          setTotalPages(1);
+          setIsLoading(false);
+          return;
         }
 
         if (!response.ok) {
@@ -213,24 +215,25 @@ export const GetTransfers = ({ isOpen = true }: { isOpen?: boolean }) => {
         const jsonData = await response.json();
         console.log("🔍 API response data:", jsonData);
 
-        // Process the response - this is for balances, but we'll adapt it to show as transfers
+        // Process the response from balances endpoint
         if (jsonData.data && Array.isArray(jsonData.data)) {
-          console.log("📊 Setting transfers from jsonData.data");
-          // Convert balances to a transfer-like format for display
+          console.log("📊 Found balances, converting to transfers format");
+
+          // Convert balances to transfer-like format for display
           const balancesAsTransfers = jsonData.data.map((balance: any) => ({
-            block_num: balance.block_num,
-            datetime: balance.datetime,
-            contract: balance.contract,
+            block_num: balance.block_num || 0,
+            datetime: balance.datetime || new Date().toISOString(),
+            contract: balance.contract_address || balance.contract || "",
             from: "0x0000000000000000000000000000000000000000", // Unknown sender for balances
             to: walletAddress,
-            amount: balance.amount,
-            value: balance.value,
-            network_id: balance.network_id,
-            symbol: balance.symbol,
-            decimals: balance.decimals,
+            amount: balance.amount || "0",
+            value: balance.amount_usd || 0,
+            network_id: balance.network_id || selectedNetwork,
+            symbol: balance.symbol || "Unknown",
+            decimals: balance.decimals || 18,
             transaction_id: "N/A", // Not available for balances
-            price_usd: balance.price_usd,
-            value_usd: balance.value_usd,
+            price_usd: balance.price_usd || 0,
+            value_usd: balance.amount_usd || 0,
           }));
 
           setTransfers(balancesAsTransfers);
@@ -238,21 +241,17 @@ export const GetTransfers = ({ isOpen = true }: { isOpen?: boolean }) => {
           // Update pagination info if available
           if (jsonData.pagination) {
             setTotalPages(jsonData.pagination.total_pages || 1);
-          }
-
-          // Show total results info
-          if (jsonData.total_results !== undefined) {
-            console.log(`📊 Total balances available: ${jsonData.total_results}`);
+          } else {
+            setTotalPages(1);
           }
         } else if (Array.isArray(jsonData)) {
-          console.log("📊 Setting transfers from array jsonData");
+          console.log("📊 Setting transfers from array data");
           setTransfers(jsonData);
-        } else if (jsonData.transfers && Array.isArray(jsonData.transfers)) {
-          console.log("📊 Setting transfers from jsonData.transfers");
-          setTransfers(jsonData.transfers);
+          setTotalPages(1);
         } else {
-          console.log("⚠️ No token data found in response");
+          console.log("⚠️ No data found in response");
           setTransfers([]);
+          setTotalPages(1);
         }
       } catch (fetchError) {
         console.error("❌ Fetch error:", fetchError);
@@ -263,7 +262,7 @@ export const GetTransfers = ({ isOpen = true }: { isOpen?: boolean }) => {
       console.error("❌ Error fetching transfers:", err);
       setError(errorMessage);
     } finally {
-      setIsLoading(false); // Always reset loading state
+      setIsLoading(false);
     }
   };
 
