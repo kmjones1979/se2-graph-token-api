@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { formatUnits } from "viem";
 import { EVM_NETWORKS, getBlockExplorerTxUrl, getNetworkName } from "~~/app/token-api/_config/networks";
 import { NetworkId } from "~~/app/token-api/_hooks/useTokenApi";
 import { TokenTransfer, TokenTransferItem, useTokenTransfers } from "~~/app/token-api/_hooks/useTokenTransfers";
@@ -68,33 +69,75 @@ export const GetTransfers = ({ isOpen = true }: { isOpen?: boolean }) => {
   };
 
   // Format token amount based on decimals
-  const formatTokenAmount = (amount: string, decimals: number): string => {
+  const formatTokenAmount = (amountStr: string, decimals: number): string => {
     try {
-      // If the amount is already a formatted number (like in value field)
-      if (!isNaN(Number(amount)) && Number(amount) < 10000000 && amount.includes(".")) {
-        return Number(amount).toLocaleString(undefined, {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 6,
+      if (!amountStr || amountStr === "0") {
+        // If amount is zero or empty, format as 0.00 or 0 depending on decimals
+        return Number(0).toLocaleString(undefined, {
+          minimumFractionDigits: decimals > 0 ? 2 : 0,
+          maximumFractionDigits: decimals > 0 ? 2 : 0,
         });
       }
 
-      // Otherwise, format based on decimals
-      const value = BigInt(amount) / BigInt(10 ** decimals);
-      const valueNumber = Number(value);
-
-      // If the value is less than 0.000001, use scientific notation
-      if (valueNumber > 0 && valueNumber < 0.000001) {
-        return valueNumber.toExponential(6);
+      // If decimals is 0 (e.g., for NFTs), return the amount string as is (representing token ID or count).
+      if (decimals === 0) {
+        // Attempt to convert to number and localize, in case it's a large number string for an NFT count.
+        const num = Number(amountStr);
+        if (!isNaN(num)) {
+          return num.toLocaleString();
+        }
+        return amountStr; // Fallback to raw string if not a simple number
       }
 
-      // Format the number with appropriate decimal places
+      // For tokens with decimals, use viem's formatUnits.
+      // formatUnits expects a BigInt for the amount.
+      let valueNumber: number;
+      try {
+        const formattedValueString = formatUnits(BigInt(amountStr), decimals);
+        valueNumber = parseFloat(formattedValueString);
+      } catch (parseError) {
+        // Fallback if amountStr is not a simple integer string for BigInt conversion,
+        // e.g., it's already a decimal string like "123.45" from some API fields.
+        if (!isNaN(Number(amountStr))) {
+          valueNumber = Number(amountStr);
+        } else {
+          console.error("Error parsing amount string for formatUnits:", parseError, { amountStr, decimals });
+          return amountStr; // Fallback to raw string if completely unparseable
+        }
+      }
+
+      if (isNaN(valueNumber)) {
+        // Should not happen if parsing above is correct
+        return amountStr;
+      }
+
+      // If the value is very small (but not zero), use scientific notation.
+      if (valueNumber > 0 && valueNumber < 0.000001) {
+        return valueNumber.toExponential(Math.min(decimals, 6)); // Use up to token's decimals or 6 for sci-notation
+      }
+
+      // Format the number with appropriate decimal places.
+      // Show at least 2 decimal places for fungible tokens, and up to a max (e.g., 6 or token's own decimals).
+      const displayDecimals = Math.min(decimals, 6); // Cap max display decimals at 6 for general readability
       return valueNumber.toLocaleString(undefined, {
         minimumFractionDigits: 2,
-        maximumFractionDigits: Math.min(decimals, 6),
+        maximumFractionDigits: displayDecimals,
       });
     } catch (e) {
-      console.error("Error formatting token amount:", e);
-      return amount;
+      console.error("Error formatting token amount:", e, { amountStr, decimals });
+      // Fallback: try to return a somewhat formatted number if possible, else raw amount.
+      if (amountStr && !isNaN(Number(amountStr)) && decimals > 0) {
+        try {
+          const fallbackValue = Number(amountStr) / 10 ** decimals;
+          return fallbackValue.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: Math.min(decimals, 6),
+          });
+        } catch {
+          // ignore
+        }
+      }
+      return amountStr; // Last resort
     }
   };
 
@@ -105,15 +148,45 @@ export const GetTransfers = ({ isOpen = true }: { isOpen?: boolean }) => {
 
   // Get formatted amount
   const getFormattedAmount = (transfer: CombinedTransfer): string => {
-    const rawAmount = getAmount(transfer);
-    const decimals = getDecimals(transfer);
+    const rawAmount = getAmount(transfer); // Fetches (item).amount OR (transfer).value_display OR (transfer).value
+    const decimals = getDecimals(transfer); // Fetches (item).decimals, defaults to 18
 
-    // If there's already a value field that's formatted, use that
+    // Prioritize calculation if decimals are present and greater than 0,
+    // and rawAmount is a valid string. This handles ERC20-like tokens.
+    if (
+      typeof (transfer as TokenTransferItem).decimals === "number" &&
+      (transfer as TokenTransferItem).decimals > 0 &&
+      rawAmount
+    ) {
+      return formatTokenAmount(rawAmount, (transfer as TokenTransferItem).decimals);
+    }
+
+    // If decimals are explicitly 0 (e.g. NFTs), also use formatTokenAmount which will handle it.
+    // This will also catch rawAmount === "0" for fungible tokens if not caught above.
+    if (
+      typeof (transfer as TokenTransferItem).decimals === "number" &&
+      (transfer as TokenTransferItem).decimals === 0 &&
+      rawAmount
+    ) {
+      return formatTokenAmount(rawAmount, 0);
+    }
+
+    // Fallback for other cases:
+    // If TokenTransferItem.value (numeric) is available, and we didn't use the path above.
+    // This might be for API responses that directly provide a pre-formatted numeric value we trust.
+    // However, given the USDT issue, this path is less preferred for fungible tokens.
     if ((transfer as TokenTransferItem).value !== undefined) {
+      // If it's a number and seems like a token amount (not a USD value, for instance)
+      // it's better to format it consistently if it has decimals.
+      // If decimals suggest it's fungible, format it. Otherwise, stringify.
+      if (decimals > 0) {
+        return formatTokenAmount(String((transfer as TokenTransferItem).value), decimals);
+      }
       return String((transfer as TokenTransferItem).value);
     }
 
-    // Otherwise format the raw amount
+    // If all else fails, format the rawAmount with the determined/defaulted decimals.
+    // This ensures that even if the API structure is slightly different, we attempt a reasonable formatting.
     return formatTokenAmount(rawAmount, decimals);
   };
 
