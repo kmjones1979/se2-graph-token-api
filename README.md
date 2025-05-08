@@ -88,7 +88,7 @@ Create a `.env.local` file in the root directory:
 # Required: Graph API Token for authentication
 NEXT_PUBLIC_GRAPH_TOKEN=your_graph_api_token_here
 
-# Optional: API URL (defaults to the stage URL if not provided)
+# Optional: API URL (defaults to the production URL if not provided)
 NEXT_PUBLIC_GRAPH_API_URL=https://token-api.thegraph.com
 ```
 
@@ -168,7 +168,7 @@ export async function GET(request: NextRequest) {
 The authentication flow works as follows:
 
 1. Client hooks call the local API route (`/api/token-proxy`) with the endpoint path and parameters
-2. The API route adds authentication headers (API key or JWT token)
+2. The API route adds authentication headers
 3. The API route forwards the request to the Graph Token API
 4. The API route returns the response to the client
 
