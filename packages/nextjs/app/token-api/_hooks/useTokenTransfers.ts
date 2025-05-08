@@ -68,6 +68,8 @@ export interface TokenTransfersResponse {
  */
 export interface TokenTransfersParams {
   network_id?: NetworkId; // Network ID (mainnet, arbitrum-one, base, bsc, matic, optimism)
+  from?: string; // Filter by from address
+  to?: string; // Filter by to address
   age?: number; // Number of days to look back (1-180, default: 30)
   contract?: string; // Filter by contract address
   limit?: number; // Maximum number of items returned (1-500, default: 10)
@@ -89,32 +91,39 @@ export interface TokenTransfersParams {
  * @returns Token transfers data and functions
  */
 export const useTokenTransfers = (
-  address: string | undefined,
+  address: string | undefined, // This address will be used as the 'to' parameter
   params?: TokenTransfersParams,
   options = { skip: address ? false : true },
 ) => {
-  // Normalize the address (ensure it has 0x prefix)
-  const normalizedAddress = address && !address.startsWith("0x") ? `0x${address}` : address;
+  // Normalize the address (ensure it has 0x prefix) - this might not be needed for query params directly
+  // const normalizedAddress = address && !address.startsWith("0x") ? `0x${address}` : address;
 
-  // Use the correct endpoint format according to Pinax API docs
-  const endpoint = normalizedAddress ? `transfers/evm/${normalizedAddress}` : "";
+  const endpoint = "transfers/evm"; // Path as per The Graph docs
+
+  // Prepare params for useTokenApi.
+  // The input 'address' is used as the 'to' parameter.
+  // User can also provide 'from', 'contract', 'limit' etc., via the 'params' object.
+  const queryParams: Record<string, any> = {
+    ...params, // Spread other parameters first
+    to: address, // Set/override 'to' with the main address argument
+    network_id: params?.network_id, // Ensure network_id is passed
+  };
+
+  // Remove undefined keys to keep URL clean, useTokenApi also does this but good practice here too.
+  Object.keys(queryParams).forEach(key => {
+    if (queryParams[key] === undefined) {
+      delete queryParams[key];
+    }
+  });
+
+  // If the main 'address' (used for 'to') is undefined, we should probably skip.
+  // The options.skip already handles if address is undefined at the hook call level.
+  // However, if 'to' is explicitly set to undefined in params and address is also undefined,
+  // the query might be malformed or too broad.
+  // For now, useTokenApi will strip undefined values.
 
   // Call the base API hook with the proper parameters
-  const result = useTokenApi<TokenTransfersResponse>(
-    endpoint,
-    {
-      network_id: params?.network_id,
-      age: params?.age,
-      contract: params?.contract,
-      limit: params?.limit,
-      page: params?.page,
-      low_liquidity: params?.low_liquidity,
-      start_date: params?.start_date,
-      end_date: params?.end_date,
-      include_prices: params?.include_prices,
-    },
-    options,
-  );
+  const result = useTokenApi<TokenTransfersResponse>(endpoint, queryParams, options);
 
   return result;
 };

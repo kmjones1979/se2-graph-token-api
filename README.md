@@ -54,6 +54,9 @@ Key features:
 -   **Multi-Network Support**: Works with Ethereum, Arbitrum, Base, BSC, Optimism, and Polygon
 -   **TypeScript Support**: Full type safety with comprehensive interfaces
 
+For a detailed guide on how the components and hooks were built, see the [Components Tutorial](TUTORIAL.MD).
+To build the test page step-by-step yourself, follow the [Test Page Workshop](WORKSHOP.MD).
+
 ## Installation
 
 ```bash
@@ -420,50 +423,47 @@ Fetches token transfer events.
 
 **Location**: `packages/nextjs/app/token-api/_hooks/useTokenTransfers.ts`
 
-> **Note**: Currently uses the balances endpoint as a fallback due to API limitations.
-
 ```typescript
 export const useTokenTransfers = (
-    address: string | undefined,
+    address: string | undefined, // Address used as the 'to' parameter by default
     params?: TokenTransfersParams,
     options = { skip: address ? false : true }
 ) => {
-    // Normalize the address
-    const normalizedAddress =
-        address && !address.startsWith("0x") ? `0x${address}` : address;
+    // Endpoint for the base hook
+    const endpoint = "transfers/evm";
 
-    // Use the transfers endpoint
-    const endpoint = normalizedAddress
-        ? `transfers/evm/${normalizedAddress}`
-        : "";
+    // Prepare query parameters, adding 'address' as 'to' param
+    const queryParams: Record<string, any> = {
+        ...params, // Spread other parameters like network_id, contract, limit, from
+        to: address,
+        network_id: params?.network_id, // Ensure network_id is passed
+    };
 
-    // Call the base API hook with proper parameters
-    return useTokenApi<TokenTransfersResponse>(
-        endpoint,
-        {
-            network_id: params?.network_id,
-            age: params?.age, // Number of days to look back (1-180)
-            contract: params?.contract, // Filter by contract address
-            limit: params?.limit, // Max results (1-500)
-            page: params?.page, // Page number
-            include_prices: params?.include_prices, // Include price data
-        },
-        options
-    );
+    // Clean up undefined params
+    Object.keys(queryParams).forEach((key) => {
+        if (queryParams[key] === undefined) {
+            delete queryParams[key];
+        }
+    });
+
+    // Call the base API hook
+    return useTokenApi<TokenTransfersResponse>(endpoint, queryParams, options);
 };
 ```
 
 **Parameters**:
 
--   `address`: Wallet address
+-   `address`: Wallet address (used as the `to` parameter)
 -   `params`: Optional parameters
-    -   `network_id`: Network identifier
-    -   `age`: Days to look back (1-180)
+    -   `network_id`: Network identifier (required by API)
+    -   `from`: Filter by sender address
+    -   `to`: Filter by recipient address (overridden by the main `address` argument)
     -   `contract`: Filter by token contract
-    -   `limit`: Results per page (1-500)
+    -   `startTime`, `endTime`: Filter by timestamp (Unix seconds)
+    -   `orderBy`, `orderDirection`: Sorting options
+    -   `limit`: Results per page
     -   `page`: Page number
-    -   `include_prices`: Include price data
--   `options`: Hook options
+-   `options`: Hook options (skip, refetchInterval)
 
 **Response Type**:
 
@@ -586,11 +586,11 @@ export function useTokenOHLCByContract(
         timeframe = 86400,
         limit = 100,
         enabled = true,
+        startTime,
+        endTime,
     } = options;
 
     const normalizedContract = contract?.toLowerCase();
-
-    // Create a valid endpoint path string
     const endpoint = normalizedContract
         ? `ohlc/prices/evm/${normalizedContract}`
         : "";
@@ -599,8 +599,10 @@ export function useTokenOHLCByContract(
         endpoint,
         {
             network_id: network,
-            interval: timeframe === 86400 ? "1d" : "1h", // Map timeframe to an interval
+            interval: timeframe === 86400 ? "1d" : "1h",
             limit,
+            startTime,
+            endTime,
         },
         {
             skip: !normalizedContract || !enabled,
@@ -615,6 +617,8 @@ export function useTokenOHLCByContract(
     -   `contract`: Token contract address
     -   `network`: Network identifier
     -   `timeframe`: Time interval in seconds (default: 86400)
+    -   `startTime`: Start timestamp (Unix seconds)
+    -   `endTime`: End timestamp (Unix seconds)
     -   `limit`: Number of results (default: 100)
     -   `enabled`: Whether to enable the query (default: true)
 
@@ -1005,120 +1009,3 @@ export function cleanContractAddress(address?: string): string {
     return cleaned;
 }
 ```
-
-## Type System
-
-### Common Types
-
-**Location**: `packages/nextjs/app/token-api/_types/common.ts`
-
-Defines common types used throughout the SDK:
-
-```typescript
-/**
- * EVM Network information
- */
-export interface EVMNetwork {
-    id: NetworkId;
-    name: string;
-    icon?: string;
-}
-```
-
-## Example Usage
-
-Test page implementation showing comprehensive hook usage:
-
-```tsx
-// packages/nextjs/app/test/page.tsx
-export default function TestPage() {
-    // Common state for all hooks
-    const [contractAddress, setContractAddress] = useState<string>(
-        "0xc944E90C64B2c07662A292be6244BDf05Cda44a7"
-    );
-    const [walletAddress, setWalletAddress] = useState<string>(
-        "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
-    );
-    const [selectedNetwork, setSelectedNetwork] =
-        useState<NetworkId>("mainnet");
-    const [shouldFetch, setShouldFetch] = useState<boolean>(false);
-    const [poolAddress, setPoolAddress] = useState<string>(
-        "0x1d42064Fc4Beb5F8aAF85F4617AE8b3b5B8Bd801"
-    );
-
-    // Initialize all hooks with skip=true until user triggers fetch
-    const { data: metadataData, refetch: refetchMetadata } = useTokenMetadata(
-        contractAddress,
-        { network_id: selectedNetwork },
-        { skip: !shouldFetch }
-    );
-
-    const { data: balancesData, refetch: refetchBalances } = useTokenBalances(
-        walletAddress,
-        { network_id: selectedNetwork },
-        { skip: !shouldFetch }
-    );
-
-    // More hooks...
-
-    // Fetch all data when button is clicked
-    const fetchAllData = () => {
-        setShouldFetch(true);
-
-        refetchMetadata?.();
-        refetchBalances?.();
-        // More refetch calls...
-    };
-
-    // Render UI with all data...
-}
-```
-
-## API Endpoint References
-
-| Endpoint                     | Description      | Hook                   | Component         |
-| ---------------------------- | ---------------- | ---------------------- | ----------------- |
-| `tokens/evm/{contract}`      | Token metadata   | useTokenMetadata       | GetMetadata       |
-| `balances/evm/{address}`     | Token balances   | useTokenBalances       | GetBalances       |
-| `holders/evm/{contract}`     | Token holders    | useTokenHolders        | GetHolders        |
-| `transfers/evm/{address}`    | Token transfers  | useTokenTransfers      | GetTransfers      |
-| `ohlc/pools/evm/{pool}`      | Pool price data  | useTokenOHLCByPool     | GetOHLCByPool     |
-| `ohlc/prices/evm/{contract}` | Token price data | useTokenOHLCByContract | GetOHLCByContract |
-| `pools/evm`                  | Liquidity pools  | useTokenPools          | GetPools          |
-| `swaps/evm`                  | DEX swap events  | useTokenSwaps          | GetSwaps          |
-
-## Troubleshooting
-
-Common issues and solutions:
-
-1. **API Authentication Errors**:
-
-    - Ensure you have set up the environment variables correctly
-    - Check that your API token is valid and not expired
-
-2. **404 Not Found Errors**:
-
-    - Some endpoints may not be fully implemented in the API
-    - Check the API documentation for supported endpoints
-    - Try using an alternative endpoint (e.g., balances instead of transfers)
-
-3. **Empty Results**:
-
-    - Verify that the address/contract exists on the selected network
-    - Try a different time range or page number
-    - Check the API documentation for parameter constraints
-
-4. **Hook Skipping Fetches**:
-    - Make sure the `skip` option is set correctly
-    - Ensure address/contract parameters are valid
-
-## Contributing
-
-Contributions are welcome! Please follow these steps:
-
-1. Fork the repository
-2. Create a new branch for your feature
-3. Add tests for your changes
-4. Submit a pull request
-
-When adding a new hook or component, please follow the existing patterns and naming conventions.

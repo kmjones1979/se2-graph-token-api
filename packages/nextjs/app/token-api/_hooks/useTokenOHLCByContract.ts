@@ -111,6 +111,14 @@ export interface UseTokenOHLCByContractOptions {
    */
   timeframe?: number;
   /**
+   * Start timestamp for the OHLC data (Unix seconds).
+   */
+  startTime?: number;
+  /**
+   * End timestamp for the OHLC data (Unix seconds).
+   */
+  endTime?: number;
+  /**
    * The number of results to return.
    * Defaults to 100.
    */
@@ -125,7 +133,7 @@ export interface UseTokenOHLCByContractOptions {
  * React hook to get OHLC price data for a token contract.
  */
 export function useTokenOHLCByContract(options: UseTokenOHLCByContractOptions = {}) {
-  const { contract, network, timeframe = 86400, limit = 100, enabled = true } = options;
+  const { contract, network, timeframe = 86400, limit = 100, enabled = true, startTime, endTime } = options;
 
   const normalizedContract = contract?.toLowerCase();
 
@@ -139,6 +147,8 @@ export function useTokenOHLCByContract(options: UseTokenOHLCByContractOptions = 
       // Use the correct parameter names from OpenAPI spec
       interval: timeframe === 86400 ? "1d" : "1h", // Map timeframe to an interval
       limit,
+      startTime,
+      endTime,
     },
     {
       skip: !normalizedContract || !enabled,

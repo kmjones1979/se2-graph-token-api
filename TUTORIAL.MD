@@ -188,133 +188,239 @@ Example from GetMetadata.tsx:
 
 ## Testing All Hooks: test/page.tsx
 
-In `packages/nextjs/app/test/page.tsx`, we've implemented a complete testing page for all Token API hooks:
+The `packages/nextjs/app/test/page.tsx` component serves as a comprehensive testbed and interactive demonstration for all the custom data fetching hooks provided by the Token API SDK. It allows developers to see each hook in action, modify input parameters, and observe the fetched data directly in the browser's console.
+
+### 1. Purpose and Overview
+
+The main goal of `TestPage.tsx` is to:
+
+-   Instantiate every specialized hook (e.g., `useTokenMetadata`, `useTokenBalances`, etc.).
+-   Provide a user interface to dynamically change the common parameters for these hooks (like network, contract addresses, wallet addresses).
+-   Automatically fetch data when the component mounts or when these parameters change.
+-   Log the data, loading states, and errors for each hook to the browser's console, ensuring each piece of data is logged only once upon arrival.
+
+### 2. State Management
+
+The component utilizes several React `useState` hooks to manage user inputs and component behavior:
+
+-   **`selectedNetwork`**:
+
+    ```typescript
+    const [selectedNetwork, setSelectedNetwork] =
+        useState<NetworkId>("mainnet");
+    ```
+
+    Stores the currently selected blockchain network (e.g., "mainnet", "base"). This is used by almost all hooks.
+
+-   **`contractAddress`**:
+
+    ```typescript
+    const [contractAddress, setContractAddress] = useState<string>(
+        "0xc944E90C64B2c07662A292be6244BDf05Cda44a7"
+    );
+    ```
+
+    Holds the token contract address, used by hooks like `useTokenMetadata`, `useTokenHolders`, `useTokenOHLCByContract`, and as a filter for `useTokenTransfers`.
+
+-   **`walletAddress`**:
+
+    ```typescript
+    const [walletAddress, setWalletAddress] = useState<string>(
+        "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
+    );
+    ```
+
+    Stores the wallet address, used by `useTokenBalances`, `useTokenTransfers`, and `useHistoricalBalances`.
+
+-   **`poolAddress`**:
+
+    ```typescript
+    const [poolAddress, setPoolAddress] = useState<string>(
+        "0x1d42064Fc4Beb5F8aAF85F4617AE8b3b5B8Bd801"
+    );
+    ```
+
+    Contains the liquidity pool address, used by `useTokenOHLCByPool` and `useTokenSwaps`.
+
+-   **`historicalBalancesFromTs` and `historicalBalancesToTs`**:
+
+    ```typescript
+    const [historicalBalancesFromTs, setHistoricalBalancesFromTs] = useState<
+        number | undefined
+    >(undefined);
+    const [historicalBalancesToTs, setHistoricalBalancesToTs] = useState<
+        number | undefined
+    >(undefined);
+    ```
+
+    These store the start and end Unix timestamps for the `useHistoricalBalances` hook. They are initialized to `undefined` to prevent server-client hydration mismatches and then set in a `useEffect` hook to default to the last 7 days:
+
+    ```typescript
+    useEffect(() => {
+        setHistoricalBalancesFromTs(
+            Math.floor((Date.now() - 7 * 24 * 60 * 60 * 1000) / 1000)
+        );
+        setHistoricalBalancesToTs(Math.floor(Date.now() / 1000));
+    }, []);
+    ```
+
+-   **`logged`**:
+    ```typescript
+    const [logged, setLogged] = useState<Partial<Record<LoggedKeys, boolean>>>(
+        {}
+    );
+    ```
+    This state, along with the `LoggedKeys` type, is crucial for managing console output. It keeps track of which hooks' data has already been logged to ensure that each piece of data is only output once when it first becomes available. `LoggedKeys` is a union type of string literals representing each hook (e.g., "metadata", "balances").
+
+### 3. Hook Initialization and Data Fetching
+
+All specialized data fetching hooks are initialized in the component. They automatically fetch data when the component mounts and whenever their relevant parameters (derived from the state variables above) change.
+
+Here's a brief overview of how each hook is set up:
+
+-   **`useTokenMetadata`**:
+
+    ```typescript
+    const { data: metadataData, ... } = useTokenMetadata(contractAddress, { network_id: selectedNetwork });
+    ```
+
+    Fetches metadata for the given `contractAddress` on the `selectedNetwork`.
+
+-   **`useTokenBalances`**:
+
+    ```typescript
+    const { data: balancesData, ... } = useTokenBalances(walletAddress, { network_id: selectedNetwork });
+    ```
+
+    Fetches token balances for the `walletAddress` on the `selectedNetwork`.
+
+-   **`useTokenHolders`**:
+
+    ```typescript
+    const { data: holdersData, ... } = useTokenHolders(contractAddress, { network_id: selectedNetwork });
+    ```
+
+    Fetches a list of token holders for the `contractAddress`.
+
+-   **`useTokenTransfers`**:
+
+    ```typescript
+    const { data: transfersData, ... } = useTokenTransfers(walletAddress, { network_id: selectedNetwork, contract: contractAddress, limit: 100 });
+    ```
+
+    Fetches token transfers for the `walletAddress`, with an optional filter for `contractAddress` on the `selectedNetwork`.
+
+-   **`useTokenOHLCByPool`**:
+
+    ```typescript
+    const { data: ohlcByPoolData, ... } = useTokenOHLCByPool(poolAddress, { network_id: selectedNetwork, resolution: "1d" });
+    ```
+
+    Fetches OHLC (Open, High, Low, Close) price data for the specified `poolAddress`.
+
+-   **`useTokenOHLCByContract`**:
+
+    ```typescript
+    const { data: ohlcByContractData, ... } = useTokenOHLCByContract({ contract: contractAddress, network: selectedNetwork, timeframe: 86400, limit: 100, enabled: true });
+    ```
+
+    Fetches OHLC price data for the `contractAddress`.
+
+-   **`useTokenPools`**:
+
+    ```typescript
+    const { data: poolsData, ... } = useTokenPools({ network_id: selectedNetwork, token: contractAddress, page_size: 10 });
+    ```
+
+    Fetches a list of liquidity pools, optionally filtered by `contractAddress` (token).
+
+-   **`useTokenSwaps`**:
+
+    ```typescript
+    const { data: swapsData, ... } = useTokenSwaps({ network_id: selectedNetwork, pool: poolAddress, page_size: 10 });
+    ```
+
+    Fetches swap events for the specified `poolAddress`.
+
+-   **`useHistoricalBalances`**:
+    ```typescript
+    const { data: historicalBalancesData, ... } = useHistoricalBalances(walletAddress, {
+      network_id: selectedNetwork,
+      contract_address: contractAddress,
+      from_timestamp: historicalBalancesFromTs,
+      to_timestamp: historicalBalancesToTs,
+      resolution: "day",
+    });
+    ```
+    Fetches historical token balances for the `walletAddress`, filtered by `contractAddress` within the given timestamp range.
+
+### 4. Console Logging Mechanism
+
+To prevent the console from being flooded with logs on every re-render, a series of `useEffect` hooks are implemented, one for each data-fetching hook. These `useEffect` hooks depend on the data, loading state, error state, and the `logged` state object.
+
+Example for `useTokenMetadata`:
 
 ```typescript
-// Common state for all hooks
-const [contractAddress, setContractAddress] = useState<string>(
-    "0xc944E90C64B2c07662A292be6244BDf05Cda44a7"
-);
-const [walletAddress, setWalletAddress] = useState<string>(
-    "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
-);
-const [selectedNetwork, setSelectedNetwork] = useState<NetworkId>("mainnet");
-const [shouldFetch, setShouldFetch] = useState<boolean>(false);
-const [poolAddress, setPoolAddress] = useState<string>(
-    "0x1d42064Fc4Beb5F8aAF85F4617AE8b3b5B8Bd801"
-);
+useEffect(() => {
+    if (!logged.metadata && metadataData !== undefined) {
+        console.log("useTokenMetadata:", {
+            data: metadataData,
+            isLoading: isLoadingMetadata,
+            error: errorMetadata,
+        });
+        setLogged((l) => ({ ...l, metadata: true }));
+    }
+}, [metadataData, isLoadingMetadata, errorMetadata, logged]);
 ```
 
-This test page demonstrates:
+**Explanation**:
 
-1. **Centralized State Management**: Common state for all hooks
-2. **Optimized Data Fetching**: Using the `skip` option to prevent unnecessary API calls until triggered
-3. **Comprehensive Error Handling**: Displaying error states for each hook
-4. **Parallel Data Loading**: Managing multiple concurrent API requests
-5. **Consistent UI Patterns**: Using the same rendering patterns across all data types
+-   This effect runs when `metadataData`, `isLoadingMetadata`, `errorMetadata`, or `logged` changes.
+-   `!logged.metadata`: Checks if the metadata has already been logged.
+-   `metadataData !== undefined`: Ensures there's actual data to log.
+-   If both conditions are true, it logs the current data, loading, and error status for `useTokenMetadata`.
+-   `setLogged(l => ({ ...l, metadata: true }))`: It then updates the `logged` state to mark that `metadata` has been logged, preventing future logs for the same data until `metadataData` itself changes to a new defined value (after perhaps an input change and refetch) and `logged.metadata` would have been reset or handled accordingly if re-logging of new data was desired (though in the current setup, it's a one-time log per data arrival).
 
-The page initializes all hooks with the skip parameter set to true, then fetches all data simultaneously when the user clicks a button:
+This pattern is repeated for all other hooks, ensuring a clean and informative console output.
 
-```typescript
-const fetchAllData = () => {
-    setShouldFetch(true);
+### 5. UI Elements and Interaction
 
-    refetchMetadata?.();
-    refetchBalances?.();
-    refetchHolders?.();
-    refetchTransfers?.();
-    refetchPools?.();
-    refetchSwaps?.();
-    refetchOhlcPool?.();
-    refetchOhlcContract?.();
-};
+The `TestPage.tsx` provides a user-friendly interface to modify the parameters for the hooks:
+
+-   **Network Selector**: A dropdown list to select the `NetworkId` (e.g., Ethereum, Base, Polygon). Changing this will refetch data for all relevant hooks on the new network.
+-   **Address Inputs**: Uses Scaffold-ETH's `AddressInput` component for:
+    -   Contract Address
+    -   Wallet Address
+    -   Pool Address
+        Changing these values will trigger refetches for hooks that depend on them.
+-   **Timestamp Inputs**: Standard number input fields for "From Timestamp" and "To Timestamp" (Unix seconds) for the `useHistoricalBalances` hook.
+
+### 6. Observing Data
+
+As the page itself doesn't render the fetched data directly in complex tables or charts (to keep the test page focused on hook functionality), users are guided to:
+
+```html
+<p className="mt-4 p-4 bg-yellow-100 text-yellow-800 rounded-md">
+    Check your browser's console (Developer Tools) to see the data, loading
+    states, and errors for each hook.
+</p>
 ```
+
+The console output will show the structured data, loading status (`isLoading`), and any errors (`error`) for each hook as they resolve.
+
+This `TestPage.tsx` provides a robust way to understand the behavior, request parameters, and response structures of all the Token API SDK hooks.
 
 ## Best Practices Implemented
 
-1. **Controlled Fetching**: Using `skip` option to prevent unnecessary API calls
-
-    ```typescript
-    {
-        skip: !shouldFetch;
-    }
-    ```
+1. **Controlled Fetching**: Hooks support an `options` object with a `skip` parameter to prevent automatic fetching (e.g., `{ skip: true }`). This is useful when waiting for user input, as seen in components like `GetMetadata.tsx`. Alternatively, the `enabled` flag (used by `useTokenOHLCByContract`) provides fine-grained control, ensuring fetches only occur when specific conditions are met (like necessary parameters being defined), as demonstrated in `TestPage.tsx`.
 
 2. **Error Handling**: Providing user-friendly error messages
 
-    ```typescript
-    if (errorMessage.includes("404")) {
-        setError(`No data found for this token contract. Please verify...`);
-    }
-    ```
-
 3. **Loading States**: Clear loading indicators during data fetching
-
-    ```typescript
-    {
-        isLoading && (
-            <div className="alert">
-                <span className="loading loading-spinner loading-md"></span>
-                <span>Loading token data...</span>
-            </div>
-        );
-    }
-    ```
 
 4. **Data Formatting**: Consistent number and address formatting
 
-    ```typescript
-    const formatSupply = (supply: string, decimals: number | undefined) => {
-        const actualDecimals = decimals || 18; // Default to 18 if undefined
-        const amount = Number(supply) / Math.pow(10, actualDecimals);
-        return formatNumber(amount.toFixed(2));
-    };
-    ```
-
 5. **Proper Component Composition**: Using Scaffold-ETH components like `<Address>` for consistent UI
-
-6. **Conditional Rendering**: Displaying appropriate UI based on data state
-
-    ```typescript
-    {
-        transfersData && transfersData.length > 0
-            ? `${transfersData.length} balances found`
-            : "-";
-    }
-    ```
-
-7. **API Fallbacks**: Implementing workarounds when specific endpoints aren't available
-
-    ```typescript
-    // Using balances endpoint as fallback for transfers
-    const {
-      data: transfersData,
-      isLoading: transfersLoading,
-      error: transfersError,
-    } = useTokenBalances(walletAddress, {...});
-    ```
-
-## Handling API Limitations
-
-When dealing with the Token API, we've implemented fallback strategies to handle endpoint limitations:
-
-1. **Transfers API**: Due to limitations with the `transfers/evm/{address}` endpoint, we use the balances endpoint as a fallback:
-
-    ```typescript
-    // Instead of transfers/evm/{address}
-    const endpoint = `balances/evm/${formattedAddress}`;
-    ```
-
-2. **Response Format Flexibility**: Handling different response formats from the API:
-
-    ```typescript
-    // Handle different response formats
-    if (jsonData.data && Array.isArray(jsonData.data)) {
-        // Process data array
-    } else if (Array.isArray(jsonData)) {
-        // Handle direct array response
-    }
-    ```
 
 ## Conclusion
 
